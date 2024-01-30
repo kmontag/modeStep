@@ -107,14 +107,6 @@ def _slider_value_notification(value: str):
     return NotificationData(text=_right_align("", value), flash_on_repeat=False)
 
 
-def _track_arm_notification(name: str, status: ArmStatus):
-    # Only show notifications when recording is (non-implicitly) enabled.
-    if status is ArmStatus.on:
-        return name
-    else:
-        return None
-
-
 class Notifications(DefaultNotifications):
     class Clip(DefaultNotifications.Clip):
         quantize = _quantize_notification
@@ -145,7 +137,8 @@ class Notifications(DefaultNotifications):
         value = _slider_value_notification
 
     class Track(DefaultNotifications.Track):
-        arm = _track_arm_notification
+        # Disabling these for now, maybe should be removed entirely...
+        arm = None
         select = DefaultNotifications.DefaultText()
 
     class TrackControls:
