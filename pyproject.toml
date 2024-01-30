@@ -1,0 +1,32 @@
+[tool.pyright]
+executionEnvironmentsd = [{ root = ".." }]
+pythonVersion = "3.7"
+exclude = ["**/__pycache__", ".git", "__ext__/"]
+extraPaths = ["./__ext__/System_MIDIRemoteScripts"]
+# Suppress warnings about the Live module not existing.
+reportMissingModuleSource = false
+
+[tool.pytest.ini_options]
+# Allow output.
+addopts = "--capture=no"
+
+[tool.ruff]
+target-version = "py37"
+# Exclude generated libs.
+extend-exclude = ["__ext__"]
+
+[tool.ruff.lint]
+# - ARG: unused arguments
+# - B: flake8-bugbear
+# - E: pycodestyle errors
+# - I: import sorting
+# - W: pycodestyle warnings
+extend-select = ["ARG", "B", "E", "I", "W"]
+# Turn off strict max line length; B950 allows for exceeding the max
+# line length in some cases.
+extend-ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+# Explicitly specify Live as a standard library to avoid potential
+# inconsistencies across systems when sorting imports.
+extra-standard-library = ["Live"]

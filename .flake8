@@ -1,0 +1,19 @@
+# -*- mode: conf-toml -*- 
+
+[flake8]
+# For integration with `black`. Adapted from
+# https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html.
+max-line-length = 88
+
+select = C,E,F,W,B,B950
+
+# E501 is the line-length check; we ignore it because B950 (above)
+# adds a line-length check that aligns better with `black`'s behavior,
+# i.e. it sometimes allows lines a bit above the max length.
+extend-ignore = E203,E501
+
+exclude = __ext__,config_schema.py
+
+[pep8]
+
+exclude = __ext__,config_schema.py

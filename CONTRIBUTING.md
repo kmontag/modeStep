@@ -1,0 +1,41 @@
+## Testing
+
+Tests work by opening Live, impersonating the MIDI output of the
+SoftStep, and checking the messages that Live sends back.
+
+To get this working, you need to configure a "modeStep" control
+surface to use "modeStep test" as its inputs and outputs. However,
+that source won't show up until tests are actually running, so you'll
+need to configure the control surface manually while you're running
+tests for the first time.
+
+You can add the test control surface in addition to the main SSCOM
+control surface, if you don't want to deal with switching the
+input/output when you want to run tests.
+
+To run tests, use:
+
+```shell
+make test
+```
+
+For debug output:
+
+```shell
+DEBUG=1 make test
+```
+
+## Linting and type checks
+
+Before submitting a PR, make sure the following are passing:
+
+```shell
+make lint # Validates code style
+make check # Validates types
+```
+
+Some lint errors can be fixed automatically with:
+
+```shell
+make fix
+```

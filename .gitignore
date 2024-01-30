@@ -1,0 +1,12 @@
+__pycache__/
+/user.py
+
+/__ext__/System_MIDIRemoteScripts/
+
+# Markers for Makefile tasks which would otherwise have no artifacts.
+/.make.*
+
+# Generated set files and project metadata.
+/tests/modeStep_tests_project/Backup
+/tests/modeStep_tests_project/*.als
+!/tests/modeStep_tests_project/_base.als

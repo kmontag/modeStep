@@ -1,0 +1,12 @@
+class MessageText:
+    # CAPTURE_MIDI = ACTION_DISPLAY_NAMES["capture_midi"]
+    DUPLICATE_SCENE = "Cp/I"
+    NEW_CLIP = "New"
+
+    TOGGLE_AUTO_ARM = "Arm"
+    TOGGLE_LINK_SESSION_RING_SCENE = "SLK"
+    TOGGLE_LINK_SESSION_RING_TRACK = "TLK"
+    TOGGLE_DEVICE_LOCK = "LoK"
+
+    TOGGLE_ENABLED = "+%s"
+    TOGGLE_DISABLED = "-%s"

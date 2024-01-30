@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<svg baseProfile="full" height="350" version="1.1" width="1137.5" xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs/>
+  <rect fill="#414243" height="350" rx="10" ry="10" width="1137.5" x="0" y="0"/>
+  <rect fill="white" fill-opacity="1.0" height="131.25" rx="5" ry="5" stroke="white" stroke-width="4" width="131.25" x="21.875" y="196.875"/>
+  <text dominant-baseline="middle" fill="#cecfd0" style="font-family: monospace;" text-anchor="middle" x="87.5" y="339.0625">1</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="87.5" y="262.5">Volume</text>
+  <rect fill="white" fill-opacity="1.0" height="131.25" rx="5" ry="5" stroke="white" stroke-width="4" width="131.25" x="196.875" y="196.875"/>
+  <text dominant-baseline="middle" fill="#cecfd0" style="font-family: monospace;" text-anchor="middle" x="262.5" y="339.0625">2</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 2.7em;" text-anchor="middle" x="262.5" y="262.5">Arm</text>
+  <rect fill="white" fill-opacity="1.0" height="131.25" rx="5" ry="5" stroke="white" stroke-width="4" width="131.25" x="371.875" y="196.875"/>
+  <text dominant-baseline="middle" fill="#cecfd0" style="font-family: monospace;" text-anchor="middle" x="437.5" y="339.0625">3</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 2.7em;" text-anchor="middle" x="437.5" y="262.5">Solo</text>
+  <rect fill="white" fill-opacity="1.0" height="131.25" rx="5" ry="5" stroke="white" stroke-width="4" width="131.25" x="546.875" y="196.875"/>
+  <text dominant-baseline="middle" fill="#cecfd0" style="font-family: monospace;" text-anchor="middle" x="612.5" y="339.0625">4</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 2.7em;" text-anchor="middle" x="612.5" y="262.5">Mute</text>
+  <rect fill="white" fill-opacity="1.0" height="131.25" rx="5" ry="5" stroke="white" stroke-width="4" width="131.25" x="721.875" y="196.875"/>
+  <text dominant-baseline="middle" fill="#cecfd0" style="font-family: monospace;" text-anchor="middle" x="787.5" y="339.0625">5</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.2em;" text-anchor="middle" x="787.5" y="219.84375">Custom Action</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.2em;" text-anchor="middle" x="787.5" y="239.53125">(Transport)</text>
+  <line fill="black" stroke="black" stroke-width="1" x1="721.875" x2="853.125" y1="260.5" y2="260.5"/>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.2em;" text-anchor="middle" x="787.5" y="288.46875">Custom Action</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.2em;" text-anchor="middle" x="787.5" y="308.15625">(Util)</text>
+  <text dominant-baseline="hanging" fill="#6a6b6c" style="font-family: monospace; font-size: 0.8em;" x="725.875" y="263.5">(long press)</text>
+  <rect fill="white" fill-opacity="1.0" height="131.25" rx="5" ry="5" stroke="white" stroke-width="4" width="131.25" x="21.875" y="21.875"/>
+  <text dominant-baseline="middle" fill="#cecfd0" style="font-family: monospace;" text-anchor="middle" x="87.5" y="164.0625">6</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="87.5" y="67.655">Select</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="87.5" y="107.345">Track</text>
+  <rect fill="white" fill-opacity="1.0" height="131.25" rx="5" ry="5" stroke="white" stroke-width="4" width="131.25" x="196.875" y="21.875"/>
+  <text dominant-baseline="middle" fill="#cecfd0" style="font-family: monospace;" text-anchor="middle" x="262.5" y="164.0625">7</text>
+  <rect fill="white" fill-opacity="1.0" height="131.25" rx="5" ry="5" stroke="white" stroke-width="4" width="131.25" x="371.875" y="21.875"/>
+  <text dominant-baseline="middle" fill="#cecfd0" style="font-family: monospace;" text-anchor="middle" x="437.5" y="164.0625">8</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="437.5" y="52.0625">Stop</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="437.5" y="87.5">Track</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="437.5" y="122.9375">Clip</text>
+  <rect fill="white" fill-opacity="1.0" height="131.25" rx="5" ry="5" stroke="white" stroke-width="4" width="131.25" x="546.875" y="21.875"/>
+  <text dominant-baseline="middle" fill="#cecfd0" style="font-family: monospace;" text-anchor="middle" x="612.5" y="164.0625">9</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="612.5" y="67.655">Clip</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="612.5" y="107.345">Launch</text>
+  <rect fill="white" fill-opacity="1.0" height="131.25" rx="5" ry="5" stroke="white" stroke-width="4" width="131.25" x="721.875" y="21.875"/>
+  <text dominant-baseline="middle" fill="#cecfd0" style="font-family: monospace;" text-anchor="middle" x="787.5" y="164.0625">0</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.38em;" text-anchor="middle" x="787.5" y="54.6875">Cancel</text>
+  <line fill="black" stroke="black" stroke-width="1" x1="721.875" x2="853.125" y1="85.5" y2="85.5"/>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.38em;" text-anchor="middle" x="787.5" y="112.2875">Disable</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.38em;" text-anchor="middle" x="787.5" y="134.3375">Preset</text>
+  <text dominant-baseline="hanging" fill="#6a6b6c" style="font-family: monospace; font-size: 0.8em;" x="725.875" y="88.5">(long press)</text>
+  <rect fill="black" height="65.625" rx="3" ry="3" width="218.75" x="896.875" y="21.875"/>
+  <text dominant-baseline="middle" fill="red" style="font-size: 2em; font-family: monospace;" text-anchor="middle" textLength="196.875" x="1006.25" xml:space="preserve" y="54.6875">1Top</text>
+  <rect fill="white" height="218.75" rx="8" ry="8" width="218.75" x="896.875" y="109.375"/>
+  <text dominant-baseline="middle" fill="#cecfd0" style="font-size: 0.8em; font-family: monospace;" text-anchor="middle" x="1006.25" y="339.0625">Nav</text>
+  <text dominant-baseline="middle" fill="#6a6b6c" style="font-size: 4em; font-family: monospace;" text-anchor="middle" x="924.21875" y="164.0625">↑</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="1006.25" y="136.71875">Session</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="1006.25" y="164.0625">Ring</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="1006.25" y="191.40625">Scenes</text>
+  <text dominant-baseline="middle" fill="#6a6b6c" style="font-size: 4em; font-family: monospace;" text-anchor="middle" x="1088.28125" y="164.0625">↓</text>
+  <line fill="black" stroke="black" stroke-width="1" x1="896.875" x2="1115.625" y1="218.75" y2="218.75"/>
+  <text dominant-baseline="middle" fill="#6a6b6c" style="font-size: 4em; font-family: monospace;" text-anchor="middle" x="924.21875" y="273.4375">←</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="1006.25" y="246.09375">Session</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="1006.25" y="273.4375">Ring</text>
+  <text dominant-baseline="middle" fill="black" style="font-family: monospace; font-size: 1.7249999999999999em;" text-anchor="middle" x="1006.25" y="300.78125">Tracks</text>
+  <text dominant-baseline="middle" fill="#6a6b6c" style="font-size: 4em; font-family: monospace;" text-anchor="middle" x="1088.28125" y="273.4375">→</text>
+</svg>
