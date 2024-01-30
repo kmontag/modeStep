@@ -126,7 +126,7 @@ class Notifications(DefaultNotifications):
         new = _action_texts["new"]
 
     class Scene(DefaultNotifications.Scene):
-        launch = partial(_scene_notification, prefix="]")
+        launch = partial(_scene_notification, prefix="#")
         select = partial(_scene_notification, prefix="#")
 
     class SessionNavigation:
