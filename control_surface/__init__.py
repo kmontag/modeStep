@@ -213,9 +213,6 @@ class Specification(ControlSurfaceSpecification):
 
 
 class modeStep(ControlSurface):
-    # Key for saved preferences.
-    preferences_key = "modeStep"
-
     def __init__(self, specification=Specification, *a, c_instance=None, **k):
         # A new control surface gets constructed when the song is changed, so we can
         # load song-dependent configuration.
@@ -251,7 +248,6 @@ class modeStep(ControlSurface):
         deps["component_map"] = const(self.component_map)
         deps["configuration"] = const(self._configuration)
         deps["hardware"] = const(self.component_map["Hardware"])
-        deps["preferences"] = const(self.preferences)
         deps["specification"] = const(self.specification)
 
         return deps

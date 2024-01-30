@@ -15,33 +15,19 @@ SessionHighlightCallback = Callable[
 
 
 class SessionRingComponent(SessionRingComponentBase):
-    preferences_highlight_scenes_key = "session_ring_highlight_scenes"
-    preferences_highlight_tracks_key = "session_ring_highlight_tracks"
-
-    @depends(preferences={}, set_session_highlight=(const(nop)))
+    @depends(set_session_highlight=(const(nop)))
     def __init__(
         self,
         *a,
         name="Session_Ring",
         num_tracks=0,
         num_scenes=0,
-        preferences: Optional[dict] = None,
         set_session_highlight: SessionHighlightCallback = nop,
         **k,
     ):
-        assert preferences
-        self._preferences = preferences
-
         # Try and sanitize the input just in case anything gets weird.
-        self._highlight_scenes, self._highlight_tracks = [
-            clamp(int(preferences[key]), 0, max_value)
-            if key in preferences
-            else default
-            for key, max_value, default in (
-                (self.preferences_highlight_scenes_key, num_scenes, 1),
-                (self.preferences_highlight_tracks_key, num_tracks, num_tracks),
-            )
-        ]
+        self._highlight_scenes = num_scenes
+        self._highlight_tracks = num_tracks
 
         def _set_reduced_session_highlight(
             track_offset, scene_offset, num_tracks, num_scenes, include_returns
