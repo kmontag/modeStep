@@ -1,7 +1,7 @@
 from logging import getLogger
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
-from ableton.v3.base import clamp, const, depends, nop
+from ableton.v3.base import const, depends, nop
 from ableton.v3.control_surface.components import (
     SessionRingComponent as SessionRingComponentBase,
 )

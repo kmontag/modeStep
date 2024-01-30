@@ -13,7 +13,6 @@ from ableton.v3.control_surface.display import (
 )
 from ableton.v3.control_surface.display.event_signal import EventSignalFn
 
-from .channel_strip import ArmStatus
 from .mode import MainModeCategory, get_main_mode_category, get_track_controls_mode
 from .track_controls import TrackControlsEditWindow, TrackControlsState
 from .types import Action
