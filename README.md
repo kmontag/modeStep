@@ -27,7 +27,7 @@ modeStep and your own SoftStep standalone presets.
 ### SoftStep 2
 
 No presets or special configuration are required on the SoftStep. The
-controller will be placed into Hosted Mode.
+controller will be placed into hosted mode.
 
 ## Intro
 
@@ -123,7 +123,7 @@ You can customize the track controls modes using
 
 #### Editing Track Controls
 
-To edit a track controls mode, long press one of keys 1-5 on the Mode
+To edit a track controls mode, long-press one of keys 1-5 on the Mode
 Select screen. You'll be prompted to choose the control for the top
 row of pedals:
 
@@ -161,10 +161,10 @@ Mode](#utility-mode) layout.
 #### Disabling Track Controls Modes
 
 If you want to remove clutter from your Mode Select screen, press and
-hold button 0 while configuring a track controls mode to disable
-it. This disables the corresponding LED on the mode select
-screen. Long-pressing the button will still allow you to reconfigure
-the preset.
+hold key 0 while editing a track controls mode to disable it. This
+disables the corresponding LED on the mode select screen. You can
+still reconfigure the mode by long-pressing the corresponding key on
+the mode select screen.
 
 ## <a name='python-configuration'/>Configuration
 
@@ -182,7 +182,7 @@ from .control_surface.configuration import Configuration, override_nav
 
 configuration = Configuration(
     initial_mode="track_controls_5",
-    key_safety_strategy="all_keys",
+    key_safety_strategy="single_key",
     override_elements: {
         "transport": [
             override_nav(horizontal="session_ring_tracks", vertical="session_ring_scenes")
@@ -230,7 +230,7 @@ from .control_surface.configuration import Configuration
 
 configuration = new Configuration(
   # Map Mode Select button 5 to setlist programs 1/2 on short/long press.
-  override_modes={5: ("standalone_1", "standalone_2")
+  override_modes={5: ("standalone_1", "standalone_2")}
 )
 ```
 
@@ -250,7 +250,7 @@ normal MIDI mappings in Live. However, you should avoid using certain
 CCs in your MIDI mappings:
 
 - avoid `CCs 40-86 (channel 1)`, since the SoftStep uses these
-  channels to send sensor data while in hosted mode.
+  controls to send sensor data while in hosted mode.
 - avoid `CCs 20-29, 40-42, 50-53, and 110-119 (any channel)`, since
   mapping these will cause Live to send feedback that interferes with
   the SoftStep's LEDs and display.
