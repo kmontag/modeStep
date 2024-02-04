@@ -83,7 +83,7 @@ class Configuration(NamedTuple):
 
     # The CC value at which keys should be considered fully pressed. Lower values ==
     # more sensitive.
-    full_pressure: int = 20
+    full_pressure: int = 37
 
     # The range of CC value change per second for incremental controls. The first number
     # is the change per second when the control is lightly pressed, the second
