@@ -108,7 +108,7 @@ _[Mode Select](#mode-select): Key 6 (Long Press)_
 _[Mode Select](#mode-select): Keys 1-5_
 
 These modes control 4 or 8 tracks within the session ring ("red
-box"). For example, pressing key 1 the Mode Select screen opens:
+box"). For example, pressing key 1 on the Mode Select screen opens:
 
 ![track_volume mode diagram](img/track-volume-mode.svg)
 
