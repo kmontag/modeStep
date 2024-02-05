@@ -193,9 +193,9 @@ configuration = Configuration(
 
 ```
 
-### Song-specific configuration
+### Set-specific configuration
 
-You can configure modeStep on a song-by-song basis by creating a clip
+You can configure modeStep on a set-by-set basis by creating a clip
 anywhere in the session view with a name like:
 
 ```text
@@ -208,12 +208,16 @@ or:
 ms<{"initial_mode": "device_parameters_pressure"}
 ```
 
+The part after `ms=` or `ms<` should be a valid JSON string, which
+will be converted to parameters for the `Configuration`.
+
 Using `ms=` will override all configuration from your `user.py`. `ms<`
 will preserve configuration from `user.py`, but override any specified
 fields.
 
-The part after `ms=` or `ms<` should be a valid JSON string, which will be
-converted to parameters for the `Configuration`.
+Configuration is only loaded when a set is opened, so you'll need to
+save and re-open the set after creating this clip. Triggering or
+otherwise interacting with the clip doesn't do anything special.
 
 ## <a name='standalone-presets'/>Standalone Presets
 
