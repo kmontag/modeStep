@@ -19,7 +19,7 @@ check: .make.pip-install __ext__/System_MIDIRemoteScripts/.make.decompile
 	pyright .
 
 .PHONY: test
-test: .make.pip-install $(TEST_PROJECT_DIR)/default.als $(TEST_PROJECT_DIR)/overrides.als $(TEST_PROJECT_DIR)/standalone.als
+test: .make.pip-install $(TEST_PROJECT_DIR)/default.als $(TEST_PROJECT_DIR)/overrides.als $(TEST_PROJECT_DIR)/standalone.als $(TEST_PROJECT_DIR)/wide_clip_launch.als
 	pytest
 
 .PHONY: img

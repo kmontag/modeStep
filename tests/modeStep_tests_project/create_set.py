@@ -65,6 +65,9 @@ configurations: Dict[str, Configuration] = {
         },
         background_program=10,
     ),
+    "wide_clip_launch": Configuration(
+        wide_clip_launch=True,
+    ),
 }
 
 if __name__ == "__main__":
