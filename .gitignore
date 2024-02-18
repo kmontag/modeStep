@@ -1,12 +1,20 @@
 __pycache__/
+
+# User config file.
 /user.py
 
+# Virtual environment.
+/.venv/
+
+# Decompiled system scripts.
 /__ext__/System_MIDIRemoteScripts/
 
 # Markers for Makefile tasks which would otherwise have no artifacts.
 /.make.*
 
 # Generated set files and project metadata.
-/tests/modeStep_tests_project/Backup
+/tests/modeStep_tests_project/Ableton Project Info/
+/tests/modeStep_tests_project/Backup/
 /tests/modeStep_tests_project/*.als
 !/tests/modeStep_tests_project/_base.als
+!/tests/modeStep_tests_project/Ableton Project Info/.keep
