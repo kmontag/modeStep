@@ -1,6 +1,6 @@
 # modeStep
 
-This is an Ableton Live 11 Control Surface script for the [SoftStep
+This is an Ableton Live 11+ Control Surface script for the [SoftStep
 2](https://www.keithmcmillen.com/products/softstep/).
 
 It lets you control transport, device parameters, clips, mixer

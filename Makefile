@@ -1,4 +1,4 @@
-SYSTEM_MIDI_REMOTE_SCRIPTS_DIR := /Applications/Ableton\ Live\ 11\ Suite.app/Contents/App-Resources/MIDI\ Remote\ Scripts
+SYSTEM_MIDI_REMOTE_SCRIPTS_DIR := /Applications/Ableton\ Live\ 12\ Suite.app/Contents/App-Resources/MIDI\ Remote\ Scripts
 TEST_PROJECT_DIR = tests/modeStep_tests_project
 
 .PHONY: deps
