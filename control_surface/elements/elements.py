@@ -593,8 +593,8 @@ class Elements(ElementsBase):
         self.add_element(
             "backlight_sysex",
             SysexToggleElement,
-            on_message=tuple(sysex.SYSEX_BACKLIGHT_ON_REQUEST),
-            off_message=tuple(sysex.SYSEX_BACKLIGHT_OFF_REQUEST),
+            on_messages=[sysex.SYSEX_BACKLIGHT_ON_REQUEST],
+            off_messages=[sysex.SYSEX_BACKLIGHT_OFF_REQUEST],
             optimized=True,
             default_value=False,
         )
@@ -602,19 +602,10 @@ class Elements(ElementsBase):
         self.add_element(
             "standalone_sysex",
             SysexToggleElement,
-            on_message=tuple(sysex.SYSEX_STANDALONE_MODE_ON_REQUEST),
-            off_message=tuple(sysex.SYSEX_STANDALONE_MODE_OFF_REQUEST),
+            on_messages=sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS,
+            off_messages=sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS,
             optimized=True,
             default_value=True,
-        )
-
-        self.add_element(
-            "tether_sysex",
-            SysexToggleElement,
-            on_message=tuple(sysex.SYSEX_TETHER_ON_REQUEST),
-            off_message=tuple(sysex.SYSEX_TETHER_OFF_REQUEST),
-            optimized=True,
-            default_value=False,
         )
 
         # Sysex input used by the test mode to check whether the control surface is

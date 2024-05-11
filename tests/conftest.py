@@ -91,6 +91,11 @@ CLEAR_CC = 0
 DISPLAY_BASE_CC = 50
 DISPLAY_WIDTH = 4
 
+# The number of separate messages, which we'll track individually, which need to be sent
+# to switch modes.
+NUM_STANDALONE_TOGGLE_MESSAGES = len(sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS)
+assert len(sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS) == NUM_STANDALONE_TOGGLE_MESSAGES
+
 
 # Error handling.
 def pytest_bdd_step_error(step: Step, feature: Feature, step_func_args: Dict[str, Any]):
@@ -134,10 +139,14 @@ class DeviceState:
         # Display initially filled with spaces.
         self._display_values: List[int] = [32] * DISPLAY_WIDTH
 
-        # Standalone mode (True), hosted mode (False), or unset (None).
-        self._standalone: Optional[bool] = None
-        # Tether on/off, or unset (None).
-        self._tether: Optional[bool] = None
+        # States of individual toggles for standalone mode. Each one can be true
+        # (standalone mode), false (hosted mode), or None if no corresponding message
+        # has been received. These messages are expected to be received in succession,
+        # so we should never stay in a state with some toggles flipped and some not.
+        self._standalone_toggles: List[Optional[bool]] = [
+            None
+        ] * NUM_STANDALONE_TOGGLE_MESSAGES
+
         # Backlight on/off, or unset (None).
         self._backlight: Optional[bool] = None
 
@@ -165,13 +174,11 @@ class DeviceState:
     def display_text(self) -> str:
         return "".join(chr(value) for value in self._display_values)
 
+    # Individual trackers for the various messages that need to be sent to enter/exit
+    # standalone mode.
     @property
-    def standalone(self) -> Optional[bool]:
-        return self._standalone
-
-    @property
-    def tether(self) -> Optional[bool]:
-        return self._tether
+    def standalone_toggles(self) -> Collection[Optional[bool]]:
+        return self._standalone_toggles
 
     @property
     def backlight(self) -> Optional[bool]:
@@ -231,7 +238,8 @@ class DeviceState:
                     values[cc - base_cc] = value
                     self._update_times[category] = time.time()
 
-        elif matches_sysex(msg, sysex.SYSEX_GREETING_REQUEST):
+        # Identity request, see http://midi.teragonaudio.com/tech/midispec/identity.htm.
+        elif matches_sysex(msg, (0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7)):
             # Greeting request flag gets set forever once the message has been
             # received.
             if not self._identity_request_event.is_set():
@@ -241,18 +249,19 @@ class DeviceState:
             # current listeners.
             self._ping_event.set()
             self._ping_event.clear()
-        elif matches_sysex(msg, sysex.SYSEX_STANDALONE_MODE_OFF_REQUEST):
-            self._standalone = False
-        elif matches_sysex(msg, sysex.SYSEX_STANDALONE_MODE_ON_REQUEST):
-            self._standalone = True
-        elif matches_sysex(msg, sysex.SYSEX_TETHER_OFF_REQUEST):
-            self._tether = False
-        elif matches_sysex(msg, sysex.SYSEX_TETHER_ON_REQUEST):
-            self._tether = True
         elif matches_sysex(msg, sysex.SYSEX_BACKLIGHT_OFF_REQUEST):
             self._backlight = False
         elif matches_sysex(msg, sysex.SYSEX_BACKLIGHT_ON_REQUEST):
             self._backlight = True
+        else:
+            # Set standalone toggle flags if appropriate.
+            for requests, standalone in (
+                (sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS, True),
+                (sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS, False),
+            ):
+                for idx, request in enumerate(requests):
+                    if matches_sysex(msg, request):
+                        self._standalone_toggles[idx] = standalone
 
         for message_listener in self._message_listeners:
             if message_listener:
@@ -486,7 +495,17 @@ async def device_identified(
     device_state: DeviceState,
 ):
     await device_state.wait_for_identity_request()
-    ioport.send(mido.Message("sysex", data=sysex.MANUFACTURER_ID_BYTES))
+    ioport.send(
+        mido.Message(
+            "sysex",
+            # Identity response.
+            data=(
+                (0x7E, 0x7F, 0x06, 0x02)
+                + sysex.MANUFACTURER_ID_BYTES
+                + sysex.DEVICE_FAMILY_BYTES
+            ),
+        )
+    )
     return True
 
 
@@ -756,11 +775,9 @@ def should_be_backlight_off(device_state: DeviceState):
 
 @then("the SS2 should be in standalone mode")
 def should_be_standalone_mode(device_state: DeviceState):
-    assert device_state.tether is False
-    assert device_state.standalone is True
+    assert all([t is True for t in device_state.standalone_toggles])
 
 
 @then("the SS2 should be in hosted mode")
 def should_be_hosted_mode(device_state: DeviceState):
-    assert device_state.tether is True
-    assert device_state.standalone is False
+    assert all([t is False for t in device_state.standalone_toggles])

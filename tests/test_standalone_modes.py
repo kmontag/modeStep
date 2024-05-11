@@ -1,6 +1,6 @@
 import asyncio
 from contextlib import contextmanager
-from typing import Generator
+from typing import Collection, Generator, Tuple
 
 import mido
 from conftest import (
@@ -21,6 +21,17 @@ BACKGROUND_PROGRAM = 10
 STANDALONE_EXIT_CC = 80
 
 scenarios("standalone_modes.feature")
+
+
+# Ensure the message matches exactly one sysex from the queue, and remove the corresponding sysex.
+def _dequeue_sysex(
+    message: "mido.Message", queue: Collection[Tuple[int, ...]]
+) -> Collection[Tuple[int, ...]]:
+    orig_num_remaining = len(queue)
+    queue = [r for r in queue if not matches_sysex(message, r)]
+    # Make sure we matched one of the queue elements.
+    assert len(queue) == orig_num_remaining - 1
+    return queue
 
 
 @contextmanager
@@ -56,12 +67,11 @@ def should_enter_standalone_program(
     ioport: mido.ports.BaseOutput,
     device_state: DeviceState,
 ):
-    assert device_state.standalone is False
-    assert device_state.tether is True
+    # Make sure the device is fully out of standalone mode.
+    assert all([t is False for t in device_state.standalone_toggles])
 
     # Events that need to happen in order.
-    received_standalone_sysex = False
-    received_tether_sysex = False
+    remaining_standalone_requests = sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS
     received_background_program = False
     received_main_program = False
 
@@ -74,21 +84,17 @@ def should_enter_standalone_program(
             if message_attrs["type"] == "sysex":
                 # The background program comes after all sysexes.
                 assert not received_background_program
-                if matches_sysex(message, sysex.SYSEX_STANDALONE_MODE_ON_REQUEST):
-                    assert not received_standalone_sysex
-                    received_standalone_sysex = True
-                elif matches_sysex(message, sysex.SYSEX_TETHER_OFF_REQUEST):
-                    assert not received_tether_sysex
-                    received_tether_sysex = True
-                else:
-                    raise RuntimeError(f"received unrecognized sysex: {message}")
+
+                remaining_standalone_requests = _dequeue_sysex(
+                    message, remaining_standalone_requests
+                )
 
             elif message_attrs["type"] == "program_change":
                 message_program: int = message_attrs["program"]
                 if message_program == BACKGROUND_PROGRAM:
                     # Make sure the controller has already been put into standalone
                     # mode.
-                    assert received_standalone_sysex and received_tether_sysex
+                    assert len(remaining_standalone_requests) == 0
                     # Assert no duplicates.
                     assert not received_background_program
                     received_background_program = True
@@ -109,9 +115,8 @@ def should_enter_standalone_program(
         # Sanity check, this should never fail given the business logic above.
         assert (
             queue.empty()
-            and device_state.standalone is True
-            and received_standalone_sysex
-            and received_tether_sysex
+            and all(device_state.standalone_toggles)
+            and len(remaining_standalone_requests) == 0
             and received_background_program
             and received_main_program
         )
@@ -132,8 +137,8 @@ def should_switch_directly_to_standalone_program(
     loop: asyncio.AbstractEventLoop,
     ioport: mido.ports.BaseOutput,
 ):
-    assert device_state.standalone is True
-    assert device_state.tether is False
+    # Make sure we're currently in standalone mode.
+    assert all(device_state.standalone_toggles)
     with _message_queue(device_state) as queue:
         cc_action(STANDALONE_EXIT_CC, "release", port=ioport, loop=loop)
         # Make sure we get one message for the program change.
@@ -153,8 +158,8 @@ def should_enter_hosted_mode(
     ioport: mido.ports.BaseOutput,
     device_state: DeviceState,
 ):
-    assert device_state.standalone is True
-    assert device_state.tether is False
+    # Make sure we're fully in standalone mode to begin.
+    assert all(device_state.standalone_toggles)
     with _message_queue(device_state) as queue:
         cc_action(STANDALONE_EXIT_CC, "release", port=ioport, loop=loop)
         stabilize_after_cc_action(loop=loop, device_state=device_state)
@@ -168,26 +173,18 @@ def should_enter_hosted_mode(
         )
 
         # Now make sure we get the right sysex messages.
-        received_hosted_sysex = False
-        received_tether_sysex = False
-        while not (received_hosted_sysex and received_tether_sysex):
+        remaining_hosted_requests = sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS
+        while any(remaining_hosted_requests):
             message = loop.run_until_complete(queue.get())
             message_attrs = message.dict()
 
             if message_attrs["type"] == "sysex":
-                if matches_sysex(message, sysex.SYSEX_STANDALONE_MODE_OFF_REQUEST):
-                    assert not received_hosted_sysex
-                    received_hosted_sysex = True
-                elif matches_sysex(message, sysex.SYSEX_TETHER_ON_REQUEST):
-                    assert not received_tether_sysex
-                    received_tether_sysex = True
-                else:
-                    raise RuntimeError(f"received unrecognized sysex: {message}")
+                remaining_hosted_requests = _dequeue_sysex(
+                    message, remaining_hosted_requests
+                )
 
         # Sanity checks.
         assert (
-            device_state.standalone is False
-            and device_state.tether is True
-            and received_hosted_sysex
-            and received_tether_sysex
+            all([d is False for d in device_state.standalone_toggles])
+            and len(remaining_hosted_requests) == 0
         )

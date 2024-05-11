@@ -36,6 +36,7 @@ from .mode import (
     MODE_SELECT_MODE_NAME,
     STANDALONE_INIT_MODE_NAME,
     AlternateOnLongPressBehaviour,
+    InvertedMode,
     MainModeCategory,
     MainModesComponent,
     ModeSelectBehaviour,
@@ -271,11 +272,12 @@ class MappingsFactory:
         mappings: Mappings = {}
 
         mappings["Hardware"] = dict(
-            enable=False,
+            # Turn on by default, and shouldn't be toggled except when entering/exiting
+            # `_disabled` mode, to avoid sending unnecessary sysexes.
+            enable=True,
             # Permanent hardware mappings.
             backlight_sysex="backlight_sysex",
             standalone_sysex="standalone_sysex",
-            tether_sysex="tether_sysex",
             # Ping input used by tests.
             ping_button="ping_sysex",
         )
@@ -308,14 +310,16 @@ class MappingsFactory:
             # is disconnected, which gives us better control over the order of
             # operations when it connects.
             DISABLED_MODE_NAME: {
-                "modes": [LayerMode(self._get_component("Background"), Layer())]
+                "modes": [
+                    LayerMode(self._get_component("Background"), Layer()),
+                    InvertedMode(EnablingMode(self._get_component("Hardware"))),
+                ]
             },
             # Add a mode that just switches to standalone mode and selects the
             # background program. We enter this on connection events to prepare the
             # controller to be placed into hosted mode.
             STANDALONE_INIT_MODE_NAME: {
                 "modes": [
-                    self._default_hardware_mode,
                     self._enter_standalone_mode,
                     # TODO: Make sure LEDs are cleared.
                 ]
@@ -380,11 +384,6 @@ class MappingsFactory:
             ),
             SetAttributeMode(hardware, "standalone", True),
         )
-
-    @lazy_attribute
-    def _default_hardware_mode(self) -> Mode:
-        hardware = self._get_component("Hardware")
-        return EnablingMode(hardware)
 
     # Mappings of (mode name, alt mode name) -> element for the mode select screen.
     @lazy_attribute
@@ -565,8 +564,6 @@ class MappingsFactory:
 
         return {
             "modes": [
-                # Enable sysex messages to the hardware.
-                self._default_hardware_mode,
                 # Special key safety strategy if any.
                 key_safety_mode,
                 # Make sure any unbound LEDs are turned off.

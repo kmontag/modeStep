@@ -12,6 +12,7 @@ from ableton.v3.base import depends, listenable_property, memoize
 from ableton.v3.control_surface.controls import ButtonControl
 from ableton.v3.control_surface.mode import (
     CallFunctionMode,
+    Mode,
     ModeButtonBehaviour,
 )
 from ableton.v3.control_surface.mode import ModesComponent as ModesComponentBase
@@ -194,6 +195,17 @@ class ReleaseBehaviour(ModeButtonBehaviour):
                 button.mode_unselected_color = f"{mode_color_base_name}.PressDelayed"
             else:
                 button.mode_unselected_color = f"{mode_color_base_name}.Off"
+
+
+class InvertedMode(Mode):
+    def __init__(self, mode: Mode):
+        self._mode = mode
+
+    def enter_mode(self):
+        self._mode.leave_mode()
+
+    def leave_mode(self):
+        self._mode.enter_mode()
 
 
 class MainModesComponent(ModesComponentBase):

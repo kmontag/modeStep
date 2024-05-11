@@ -15,7 +15,6 @@ class HardwareComponent(Component):
     # as colors.
     backlight_sysex: ColorSysexControl.State = ColorSysexControl(color=True)  # type: ignore
     standalone_sysex: ColorSysexControl.State = ColorSysexControl(color=False)  # type: ignore
-    tether_sysex: ColorSysexControl.State = ColorSysexControl(color=True)  # type: ignore
 
     ping_button: Any = ButtonControl()
 
@@ -87,7 +86,6 @@ class HardwareComponent(Component):
     def _update_standalone(self):
         if self.is_enabled():
             self.standalone_sysex.color = self._standalone
-            self.tether_sysex.color = not self._standalone
 
             self._update_standalone_program()
 

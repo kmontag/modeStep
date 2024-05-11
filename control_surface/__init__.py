@@ -44,7 +44,7 @@ from .scene import SceneComponent
 from .session import SessionComponent
 from .session_navigation import SessionNavigationComponent
 from .session_ring import SessionRingComponent
-from .sysex import MANUFACTURER_ID_BYTES, SYSEX_GREETING_REQUEST
+from .sysex import DEVICE_FAMILY_BYTES, MANUFACTURER_ID_BYTES
 from .track_controls import TrackControlsComponent, TrackControlsState
 from .transport import TransportComponent
 from .types import Action, TrackControl
@@ -59,8 +59,10 @@ def get_capabilities():
     return {
         CONTROLLER_ID_KEY: controller_id(
             vendor_id=0x1F38,
-            product_ids=0x000B,
-            model_name=["SSCOM"],
+            # Firmware v2.x.
+            product_ids=(0x000C),
+            # Earlier firmware versions used "SSCOM".
+            model_name=("SoftStep"),
         ),
         PORTS_KEY: [
             inport(props=[NOTES_CC]),
@@ -169,24 +171,10 @@ class Specification(ControlSurfaceSpecification):
     # Gets conditionally enabled later.
     include_auto_arming = True
 
-    # The SoftStep doesn't respond to the standard MIDI identity
-    # requests. We send its custom greeting message instead.
-    #
-    # Note the identity request takes a little while to be processed
-    # (a second or two) and causes the controller to freeze in the
-    # meantime. This can unfortunately be inconvenient in the case
-    # where identity requests are triggered by port changes from other
-    # devices.
-    identity_request = SYSEX_GREETING_REQUEST
-
-    # Delay before sending a second identity request if no response received. We use
-    # double this value as the timeout for considering the controller to be
-    # disconnected.
-    identity_request_delay = 1.25
-
-    # The SoftStep responds to its greeting with a long sysex that begins with the
-    # manufacturer ID bytes. (Unclear if the additional bytes are always predictable.)
-    custom_identity_response = (0xF0, *MANUFACTURER_ID_BYTES)
+    identity_response_id_bytes = (
+        *MANUFACTURER_ID_BYTES,
+        *DEVICE_FAMILY_BYTES,
+    )
 
     component_map = {
         "Clip_Actions": ClipActionsComponent,
