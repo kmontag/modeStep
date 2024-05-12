@@ -30,8 +30,9 @@ modeStep and your own SoftStep standalone presets.
 
 ### SoftStep 2
 
-No presets or special configuration are required on the SoftStep.
-Make sure your device firmware is up to date (v2.0.3 or newer).
+No presets or special configuration are required on the SoftStep -
+just make sure your device firmware is up to date (v2.0.3 or newer).
+The controller will be placed into hosted mode.
 
 ## Intro
 
