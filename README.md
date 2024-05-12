@@ -31,7 +31,7 @@ modeStep and your own SoftStep standalone presets.
 ### SoftStep 2
 
 No presets or special configuration are required on the SoftStep.
-Make sure your device firmware is up to date (v2.0.3 or greater).
+Make sure your device firmware is up to date (v2.0.3 or newer).
 
 ## Intro
 
