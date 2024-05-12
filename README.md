@@ -7,9 +7,8 @@ It lets you control transport, device parameters, clips, mixer
 controls, and more. It provides realtime feedback via the SoftStep's
 LEDs and display.
 
-The interface is [highly](#python-configuration)
-[configurable](#track-controls), so you can arrange things in a way
-that makes sense for you.
+The interface is [highly configurable](#python-configuration), so you
+can arrange things in a way that makes sense for you.
 
 You can also [switch back and forth](#standalone-presets) between
 modeStep and your own SoftStep standalone presets.
@@ -19,15 +18,20 @@ modeStep and your own SoftStep standalone presets.
 ### Live
 
 - Clone or download this repo and place it in your Live User Library
-  under the `Remote Scripts/` directory.
-- (Re)start Live, and go to `Link / Tempo / MIDI` in Preferences.
-- Choose `modeStep` as one of your control surfaces, and select `SSCOM
-(Port 1)` for the Input and Output.
+  under the `Remote Scripts/` directory. If you download it directly,
+  make sure to change the folder name from `modeStep-main` to
+  `modeStep` (or anything without a hyphen).
+- (Re)start Live, and go to `Link, Tempo & MIDI` in Preferences.
+- Choose `modeStep` as one of your control surfaces, and select the
+  main SoftStep port (generally `SoftStep (Control Surface)` or
+  `SoftStep`) for the Input and Output.
+- Ensure the `Remote` checkbox for the selected MIDI port is enabled
+  under the `Input Ports` and `Output Ports` sections.
 
 ### SoftStep 2
 
-No presets or special configuration are required on the SoftStep. The
-controller will be placed into hosted mode.
+No presets or special configuration are required on the SoftStep.
+Make sure your device firmware is up to date (v2.0.3 or greater).
 
 ## Intro
 
@@ -35,8 +39,8 @@ controller will be placed into hosted mode.
 indicated by `Trns` on the SoftStep's screen. Try pressing key 3 to
 play/stop the transport.
 
-<a name='mode-select'></a>From any mode, you can press key 0 to open the Mode Select screen, and
-choose where you want to go:
+<a name='mode-select'></a>From any mode, you can press key 0 to open 
+the Mode Select screen, and choose where you want to go:
 
 ![mode select diagram](img/mode-select.svg)
 
@@ -118,14 +122,75 @@ assigned to session record.
 
 You can customize the track controls modes using
 `override_track_controls` in your
-[configuration](#python-configuration). You can also edit them
-(ephemerally) directly from the SoftStep as described below.
+[configuration](#python-configuration), or [edit them 
+directly](#editing-track-controls) if you need a different layout 
+in the moment.
 
-#### Editing Track Controls
+## Advanced Usage
 
-To edit a track controls mode, long-press one of keys 1-5 on the Mode
-Select screen. You'll be prompted to choose the control for the top
-row of pedals:
+<details>
+
+<summary><a name='python-configuration'/><h3>Configuration</h3></summary>
+
+You can customize modeStep by creating a file called `user.py` in this
+directory.
+
+See [configuration.py](control_surface/configuration.py) for a full
+list and description of available options, and
+[types.py](control_surface/types.py) for valid values for mode names
+and other literals. For example:
+
+```python
+# user.py
+from .control_surface.configuration import Configuration, override_nav
+
+configuration = Configuration(
+    initial_mode="track_controls_5",
+    key_safety_strategy="single_key",
+    override_elements: {
+        "transport": [
+            override_nav(horizontal="session_ring_tracks", vertical="session_ring_scenes")
+        ]
+    },
+    # ...
+)
+
+```
+#### Set-specific configuration
+
+You can configure modeStep on a set-by-set basis by creating a clip
+anywhere in the session view with a name like:
+
+```text
+ms={"initial_mode": "device_parameters_pressure"}
+```
+
+or:
+
+```text
+ms<{"initial_mode": "device_parameters_pressure"}
+```
+
+The part after `ms=` or `ms<` should be a valid JSON string, which
+will be converted to parameters for the `Configuration`.
+
+Using `ms=` will override all configuration from your `user.py`. `ms<`
+will preserve configuration from `user.py`, but override any specified
+fields.
+
+Configuration is only loaded when a set is opened, so you'll need to
+save and re-open the set after creating this clip. Triggering or
+otherwise interacting with the clip doesn't do anything special.
+</details>
+
+<details>
+<summary><a name='editing-track-controls' /><h3>Live-Editing Track Controls</h3></summary>
+
+You can modify track controls for the current session directly from
+the SoftStep (for persistent changes, use the 
+[configuration file](#python-configuration)). To do this, long-press 
+one of keys 1-5 on the Mode Select screen. You'll be prompted to 
+choose the control for the top row of pedals:
 
 ![configure preset diagram](img/edit-track-control.svg)
 
@@ -165,61 +230,10 @@ hold key 0 while editing a track controls mode to disable it. This
 disables the corresponding LED on the mode select screen. You can
 still reconfigure the mode by long-pressing the corresponding key on
 the mode select screen.
+</details>
 
-## <a name='python-configuration'/>Configuration
-
-You can customize modeStep by creating a file called `user.py` in this
-directory.
-
-See [configuration.py](control_surface/configuration.py) for a full
-list and description of available options, and
-[types.py](control_surface/types.py) for valid values for mode names
-and other literals. For example:
-
-```python
-# user.py
-from .control_surface.configuration import Configuration, override_nav
-
-configuration = Configuration(
-    initial_mode="track_controls_5",
-    key_safety_strategy="single_key",
-    override_elements: {
-        "transport": [
-            override_nav(horizontal="session_ring_tracks", vertical="session_ring_scenes")
-        ]
-    },
-    # ...
-)
-
-```
-
-### Set-specific configuration
-
-You can configure modeStep on a set-by-set basis by creating a clip
-anywhere in the session view with a name like:
-
-```text
-ms={"initial_mode": "device_parameters_pressure"}
-```
-
-or:
-
-```text
-ms<{"initial_mode": "device_parameters_pressure"}
-```
-
-The part after `ms=` or `ms<` should be a valid JSON string, which
-will be converted to parameters for the `Configuration`.
-
-Using `ms=` will override all configuration from your `user.py`. `ms<`
-will preserve configuration from `user.py`, but override any specified
-fields.
-
-Configuration is only loaded when a set is opened, so you'll need to
-save and re-open the set after creating this clip. Triggering or
-otherwise interacting with the clip doesn't do anything special.
-
-## <a name='standalone-presets'/>Standalone Presets
+<details>
+<summary><a name='standalone-presets'/><h3>Standalone Presets</h3></summary>
 
 modeStep can put the SoftStep into standalone mode and load any
 presets in your setlist.
@@ -262,3 +276,4 @@ CCs in your MIDI mappings:
 _Note: if you're having issues with LED states being overwritten when
 switching in and out of standalone mode, make sure to set a
 `background_program` in your configuration._
+</details>
