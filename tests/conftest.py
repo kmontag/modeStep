@@ -404,10 +404,11 @@ def ioport():
         yield ioport
 
 
-# Relay port to the physical device for visual feedback during tests, if available.
+# Cheap thrills - relay the test port to the physical device for visual feedback during
+# tests, if available.
 @fixture
 def relay_port() -> Generator[Optional[mido.ports.BaseOutput], Never, None]:
-    port_name = "SSCOM Port 1"
+    port_name = "SoftStep Control Surface"
     try:
         with mido.open_output(port_name) as relay_port:  # type: ignore
             yield relay_port
@@ -771,6 +772,11 @@ def should_be_backlight_on(device_state: DeviceState):
 @then("the backlight should be off")
 def should_be_backlight_off(device_state: DeviceState):
     assert device_state.backlight is False
+
+
+@then("the backlight should be unmanaged")
+def should_be_backlight_unmanaged(device_state: DeviceState):
+    assert device_state.backlight is None
 
 
 @then("the SS2 should be in standalone mode")

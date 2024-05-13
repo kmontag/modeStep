@@ -57,22 +57,3 @@ Feature: Basic usage
 
     When I long-press key 0
     Then the display should be "Expr"
-
-  Scenario: Toggling the backlight
-    Then the backlight should be off
-    And the display should be "Trns"
-
-    When I press key 0
-    And I long-press key 9
-    Then the display should be "Util"
-    And light 6 should be solid red
-
-    When I press key 6
-    Then light 6 should be solid green
-    And the display should be "+BaK"
-    And the backlight should be on
-
-    When I press key 6
-    Then light 6 should be solid red
-    And the display should be "-BaK"
-    And the backlight should be off

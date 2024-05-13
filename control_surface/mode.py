@@ -7,7 +7,6 @@ from enum import Enum
 from functools import partial
 from time import time
 
-from ableton.v2.control_surface.mode import SetAttributeMode
 from ableton.v3.base import depends, listenable_property, memoize
 from ableton.v3.control_surface.controls import ButtonControl
 from ableton.v3.control_surface.mode import (
@@ -77,11 +76,15 @@ def get_index_str(name: str):
     return name.split("_")[-1]
 
 
-class SetMutableAttributeMode(SetAttributeMode):
-    # Set the attribute regardless of whether it's changed.
+class InvertedMode(Mode):
+    def __init__(self, mode: Mode):
+        self._mode = mode
+
+    def enter_mode(self):
+        self._mode.leave_mode()
+
     def leave_mode(self):
-        assert self._attribute
-        setattr(self._get_object(), self._attribute, self._old_value)
+        self._mode.enter_mode()
 
 
 # The mode select button:
@@ -195,17 +198,6 @@ class ReleaseBehaviour(ModeButtonBehaviour):
                 button.mode_unselected_color = f"{mode_color_base_name}.PressDelayed"
             else:
                 button.mode_unselected_color = f"{mode_color_base_name}.Off"
-
-
-class InvertedMode(Mode):
-    def __init__(self, mode: Mode):
-        self._mode = mode
-
-    def enter_mode(self):
-        self._mode.leave_mode()
-
-    def leave_mode(self):
-        self._mode.enter_mode()
 
 
 class MainModesComponent(ModesComponentBase):
@@ -344,15 +336,22 @@ class MainModesComponent(ModesComponentBase):
 class ToggleModesComponent(ModesComponentBase):
     _on_mode = "on"
     _off_mode = "off"
+    _unset_mode = "unset"
 
     def __init__(
         self,
         # Turn the target on or off. This will be called when the component switches
-        # modes, as well as once immediately during the initial mode select.
+        # modes, as well as (if an initial state is given) once immediately during
+        # the initial mode select.
         set_state: typing.Callable[[bool], typing.Any],
         *a,
         # Initial state to set.
-        initial_state: bool = False,
+        #
+        # If `None`, the setter won't be called during
+        # initializtion, but the cycling position will be set such that the ON state is
+        # next. For example, to leave the backlight unmanaged at first but allow
+        # toggling it in real time.
+        initial_state: typing.Optional[bool] = None,
         # Don't want long-press behavior for the cycle button.
         support_momentary_mode_cycling=False,
         **k,
@@ -363,21 +362,39 @@ class ToggleModesComponent(ModesComponentBase):
             *a, support_momentary_mode_cycling=support_momentary_mode_cycling, **k
         )
 
-        self._state: bool = initial_state
+        self._state: typing.Optional[bool] = initial_state
 
         def set_and_record_state(state: bool):
             set_state(state)
             self._state = state
 
+        # ON mode should come first so that it's next in the cycle if no initial state
+        # was passed.
         for name, state in ((self._on_mode, True), (self._off_mode, False)):
             self.add_mode(
                 name,
                 CallFunctionMode(partial(set_and_record_state, state)),
             )
 
+        # No-op mode that will get skipped in the cycle, to represent an initial state
+        # of `None`. Note we need to set our `selected_mode` explicitly in the
+        # constructor (it can't just be `None`), since otherwise the framework's setup
+        # logic will just select one for us.
+        self.add_mode(self._unset_mode, Mode())
+
         self._suppressing_notifications = False
         with self.suppressing_notifications():
-            self.selected_mode = self._on_mode if initial_state else self._off_mode
+            if initial_state is None:
+                self.selected_mode = self._unset_mode
+            else:
+                self.selected_mode = self._on_mode if initial_state else self._off_mode
+
+    def cycle_mode(self, delta=1):
+        super().cycle_mode(delta)
+
+        # Skip the null mode in the cycle.
+        if self.selected_mode == self._unset_mode:
+            super().cycle_mode(1)
 
     # Maybe there's a more built-in way to do this?
     @contextmanager

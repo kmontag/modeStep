@@ -1,5 +1,8 @@
 SYSTEM_MIDI_REMOTE_SCRIPTS_DIR := /Applications/Ableton\ Live\ 12\ Suite.app/Contents/App-Resources/MIDI\ Remote\ Scripts
-TEST_PROJECT_DIR = tests/modeStep_tests_project
+
+TEST_PROJECT_SET_NAMES := backlight default overrides standalone wide_clip_launch
+TEST_PROJECT_DIR := tests/modeStep_tests_project
+TEST_PROJECT_SETS := $(addprefix $(TEST_PROJECT_DIR)/, $(addsuffix .als, $(TEST_PROJECT_SET_NAMES)))
 
 .PHONY: deps
 deps: __ext__/System_MIDIRemoteScripts/.make.decompile .make.pip-install
@@ -19,7 +22,7 @@ check: .make.pip-install __ext__/System_MIDIRemoteScripts/.make.decompile
 	.venv/bin/pyright .
 
 .PHONY: test
-test: .make.pip-install $(TEST_PROJECT_DIR)/default.als $(TEST_PROJECT_DIR)/overrides.als $(TEST_PROJECT_DIR)/standalone.als $(TEST_PROJECT_DIR)/wide_clip_launch.als
+test: .make.pip-install $(TEST_PROJECT_SETS)
 	.venv/bin/pytest
 
 .PHONY: img

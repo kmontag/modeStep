@@ -225,6 +225,9 @@ class Skin:
         class On:
             On = TOGGLE_ON
 
+        class Unset:
+            On = TOGGLE_OFF
+
     class Mixer:
         ArmOn = GREEN_ON
         ArmOff = RED_ON

@@ -61,8 +61,13 @@ class Configuration(NamedTuple):
     # may override this behavior.
     auto_arm: bool = False
 
-    # Whether to turn on the backlight. Can be toggled from utility mode.
-    backlight: bool = False
+    # Backlight on/off state (or `None` to leave it unmanaged) to be set at
+    # startup.
+    backlight: Optional[bool] = None
+
+    # Backlight on/off state (or `None` to leave it unmanaged) to be set at
+    # exit.
+    disconnect_backlight: Optional[bool] = None
 
     # Add a behavior when long pressing a clip (currently just "stop_track_clips" is available).
     clip_long_press_action: Optional[ClipSlotAction] = None
@@ -237,7 +242,8 @@ def get_configuration(song) -> Configuration:
 ElementOverride = Tuple[str, str, str]
 
 ##
-# Helpers for overriding elements. Keys are the physical key numbers on the SoftStep.
+# Helpers for overriding elements, see above for usage examples. Keys are the
+# physical key numbers on the SoftStep.
 
 
 # Override a key with an action.

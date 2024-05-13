@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import typing
+from contextlib import contextmanager
 from functools import partial
 
 from ableton.v3.base import const, depends, inject, listens, task
@@ -44,7 +45,13 @@ from .scene import SceneComponent
 from .session import SessionComponent
 from .session_navigation import SessionNavigationComponent
 from .session_ring import SessionRingComponent
-from .sysex import DEVICE_FAMILY_BYTES, MANUFACTURER_ID_BYTES
+from .sysex import (
+    DEVICE_FAMILY_BYTES,
+    MANUFACTURER_ID_BYTES,
+    SYSEX_BACKLIGHT_OFF_REQUEST,
+    SYSEX_BACKLIGHT_ON_REQUEST,
+    SYSEX_STANDALONE_MODE_ON_REQUESTS,
+)
 from .track_controls import TrackControlsComponent, TrackControlsState
 from .transport import TransportComponent
 from .types import Action, TrackControl
@@ -176,6 +183,14 @@ class Specification(ControlSurfaceSpecification):
         *DEVICE_FAMILY_BYTES,
     )
 
+    # Force the controller into standalone mode when exiting (this will be redundant if
+    # a standalone mode is already active.) The disconnect program change message will
+    # be appended below, if configured.
+    goodbye_messages: typing.Collection[
+        typing.Tuple[int, ...]
+    ] = SYSEX_STANDALONE_MODE_ON_REQUESTS
+    send_goodbye_messages_last = True
+
     component_map = {
         "Clip_Actions": ClipActionsComponent,
         "Device": create_device_component,
@@ -217,11 +232,28 @@ class modeStep(ControlSurface):
         specification.link_session_ring_to_track_selection = (
             self._configuration.link_session_ring_to_track_selection
         )
-
-        super().__init__(*a, specification=specification, c_instance=c_instance, **k)
+        if self._configuration.disconnect_program is not None:
+            specification.goodbye_messages = [
+                *specification.goodbye_messages,
+                (0xC0, self._configuration.disconnect_program),
+            ]
+        if self._configuration.disconnect_backlight is not None:
+            specification.goodbye_messages = [
+                *specification.goodbye_messages,
+                (
+                    SYSEX_BACKLIGHT_ON_REQUEST
+                    if self._configuration.disconnect_backlight
+                    else SYSEX_BACKLIGHT_OFF_REQUEST
+                ),
+            ]
 
         # Internal tracker during connect/reconnect events.
         self._mode_after_identified = self._configuration.initial_mode
+
+        # For hacking around the weird LED behavior when updating the backlight.
+        self.__is_suppressing_hardware: bool = False
+
+        super().__init__(*a, specification=specification, c_instance=c_instance, **k)
 
     # Dependencies to be injected throughout the application.
     #
@@ -250,38 +282,29 @@ class modeStep(ControlSurface):
             return super(modeStep, modeStep)._create_elements(specification)
 
     def setup(self):
-        # Activate the background mode before doing anything. No-op if no background
-        # program has been set.
-        self.component_map[
-            "Hardware"
-        ].standalone_program = self._configuration.background_program
-        self._flush_midi_messages()
-
-        # Put the controller explicitly into hosted mode. This avoids
-        # the need to modify this attribute in every non-standalone
-        # control surface mode, which would send unnecessary sysex
-        # messages on every mode change.
-        self.component_map["Hardware"].standalone = False
-
         super().setup()
 
+        hardware = self.component_map["Hardware"]
+        # Activate the background program before doing anything. The program change will
+        # get sent when the controller is placed into `_stanadlone_init_mode`. No-op if
+        # no background program has been set.
+        hardware.standalone_program = self._configuration.background_program
+
+        # Turn on hosted mode by default, so it doesn't need to be specified explicitly
+        # in normal (non-standalone) mode layers.
+        hardware.standalone = False
+
+        # Activate `_disabled` mode, which will enable the hardware controller in its
+        # `on_leave` callback.
+        self.main_modes.selected_mode = DISABLED_MODE_NAME
+
+        # Listen for backlight color values, to hack around the weird LED behavior when
+        # the backlight sysexes get sent.
+        assert self.__on_backlight_send_value is not None
+        assert self.elements
+        self.__on_backlight_send_value.subject = self.elements.backlight_sysex
+
         logger.info(f"{self.__class__.__name__} setup complete")
-
-    def disconnect(self):
-        # The individual control element `disconnect()` methods will
-        # be called, which should clear all lights and put the
-        # controller into standalone mode. The order of MIDI events is
-        # not guaranteed, but it shouldn't really matter, since LED
-        # updates will be applied to the current standalone preset
-        # regardless of whether the controller is in standalone or
-        # hosted mode.
-        super().disconnect()
-
-        # Send the final program change message, if any.
-        if self._configuration.disconnect_program:
-            self._send_midi(
-                (0xC0, self._configuration.disconnect_program), optimized=False
-            )
 
     @property
     def main_modes(self):
@@ -301,15 +324,17 @@ class modeStep(ControlSurface):
         if not self._identity_response_timeout_task.is_killed:
             self._identity_response_timeout_task.kill()
 
-        # Don't do anything unless we're currently in disabled
-        # mode. There's no need to force a controller update.
+        # We'll reach this point on startup, as well as when MIDI ports change (due to
+        # hardware disconnects/reconnects or changes in the Live settings). Don't do
+        # anything unless we're currently in disabled mode, i.e. unless we're
+        # transitioning from a disconnected controller - there's no need to switch in
+        # and out of standalone mode otherwise.
         if (
             self.main_modes.selected_mode is None
             or self.main_modes.selected_mode == DISABLED_MODE_NAME
         ):
-            # Force the controller into standalone mode (so we're starting
-            # from a consistent state), send the standalone background
-            # program if any, and clear the LEDs and display.
+            # Force the controller into standalone mode, and send the standalone
+            # background program, if any.
             self.main_modes.selected_mode = STANDALONE_INIT_MODE_NAME
 
             # After a short delay, load the main desired mode. This
@@ -335,13 +360,13 @@ class modeStep(ControlSurface):
         ):
             self._mode_after_identified = self.main_modes.selected_mode
 
-        # Enter disabled mode, which relinquishes control of
-        # everything. This ensures that nothing will be bound when the
-        # controller is identified, so we won't send a bunch of LED
-        # messages before placing it into hosted mode. (This could
-        # still happen if the controller were connected and
-        # disconnected quickly, but in any case it would just
-        # potentially mess with standalone-mode LEDs.)
+        # Enter disabled mode, which relinquishes control of everything. This ensures
+        # that sysex state values will be invalidated (by disconnecting their control
+        # elements), and nothing will be bound when the controller is next identified,
+        # so we won't send a bunch of LED messages before placing it into hosted
+        # mode. (This could still happen if the controller were connected and
+        # disconnected quickly, but in any case it would just potentially mess with
+        # standalone-mode LEDs.)
         self.main_modes.selected_mode = DISABLED_MODE_NAME
 
     @listens("is_identified")
@@ -384,3 +409,62 @@ class modeStep(ControlSurface):
             else self._configuration.initial_mode
         )
         self.main_modes.selected_mode = mode
+
+    # Whenever a backlight sysex is fired, after several seconds, the LEDs revert to the
+    # initial colors of the most recent standalone preset (even when in hosted
+    # mode). This appears to be a firmware bug, as the behavior is also reproducible
+    # when setting the backlight via the SoftStep editor. Work around this by refreshing
+    # device state a few times after the appropriate wait.
+    @lazy_attribute
+    def _backlight_workaround_task(self):
+        def refresh_state_except_backlight():
+            with self.__suppressing_backlight():
+                # Clears all send caches and updates all components.
+                self.update()
+
+        backlight_workaround_task = self._tasks.add(
+            task.sequence(
+                task.wait(3.5),
+                # Keep trying for a bit, sometimes the LEDs blank out later than
+                # expected.
+                *[
+                    task.sequence(
+                        task.run(refresh_state_except_backlight), task.wait(0.2)
+                    )
+                    for _ in range(10)
+                ],
+            )
+        )
+        backlight_workaround_task.kill()
+        return backlight_workaround_task
+
+    @listens("send_value")
+    def __on_backlight_send_value(self, _):
+        # If actual sends are being suppressed, we don't care about the event.
+        if not self.__is_suppressing_hardware:
+            if not self._backlight_workaround_task.is_killed:
+                self._backlight_workaround_task.kill()
+            self._backlight_workaround_task.restart()
+
+    # Use this while force-refreshing the LED state after a backlight update. Suppresses
+    # all messages for the backlight (because that's why we're here in the first place)
+    # and the standalone/hosted state (because it causes LED flicker and shouldn't be
+    # necessary to re-send).
+    @contextmanager
+    def __suppressing_backlight(self, is_suppressing_backlight=True):
+        old_suppressing_hardware = self.__is_suppressing_hardware
+        self.__is_suppressing_hardware = is_suppressing_backlight
+
+        try:
+            assert self.elements
+            backlight_sysex = self.elements.backlight_sysex
+            standalone_sysex = self.elements.standalone_sysex
+
+            with backlight_sysex.deferring_send(), standalone_sysex.deferring_send():
+                yield
+
+                # Hack to prevent any updates from actually getting sent.
+                backlight_sysex._deferred_message = None
+                standalone_sysex._deferred_message = None
+        finally:
+            self.__is_suppressing_hardware = old_suppressing_hardware

@@ -25,6 +25,7 @@ else:
 
 configurations: Dict[str, Configuration] = {
     "default": Configuration(),
+    "backlight": Configuration(backlight=True),
     "overrides": Configuration(
         override_elements={
             "transport": [
