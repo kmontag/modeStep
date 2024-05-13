@@ -9,11 +9,27 @@ from ableton.v3.control_surface.controls import ButtonControl
 logger = logging.getLogger(__name__)
 
 
+# A sysex which accepts a null color to represent an unmanaged property.
+class NullableColorSysexControl(ColorSysexControl):
+    class State(ColorSysexControl.State):
+        def __init__(self, color=None, *a, **k):
+            super().__init__(color, *a, **k)
+
+            # The parent sets this to "DefaultButton.Disabled" by default, override with
+            # actual `None`.
+            if color is None:
+                self.color = color
+
+        def _send_current_color(self):
+            if self.color is not None:
+                return super()._send_current_color()
+
+
 class HardwareComponent(Component):
     # These are expected to be mapped to `ToggleSysexElement`s or,
     # more specifically, to sysex elements which accept boolean values
     # as colors.
-    backlight_sysex: ColorSysexControl.State = ColorSysexControl(color=False)  # type: ignore
+    backlight_sysex: ColorSysexControl.State = NullableColorSysexControl(color=None)  # type: ignore
     standalone_sysex: ColorSysexControl.State = ColorSysexControl(color=False)  # type: ignore
 
     ping_button: Any = ButtonControl()
@@ -35,11 +51,11 @@ class HardwareComponent(Component):
 
         # Initial values for device properties - these will get set externally when
         # actually setting up this component.
-        self._backlight: bool = False
+        self._backlight: Optional[bool] = None  # None for unmanaged.
         self._standalone: bool = False
 
     @property
-    def backlight(self) -> bool:
+    def backlight(self) -> Optional[bool]:
         return self._backlight
 
     @backlight.setter

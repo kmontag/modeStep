@@ -1,12 +1,20 @@
-from typing import Collection, Optional, Tuple
+import logging
+from typing import Any, Collection, Optional, Tuple
 
 from ableton.v2.control_surface.elements import ButtonElementMixin
+from ableton.v3.base import listenable_property
 from ableton.v3.control_surface.elements import (
     SysexElement,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class SysexButtonElement(SysexElement, ButtonElementMixin):
+    # def send_value(self, *a, **k):
+    #     logger.info(f"SEND from {self.name}")
+    #     return super().send_value(*a, **k)
+
     def is_momentary(self):
         return False
 
@@ -28,7 +36,7 @@ class SysexToggleElement(SysexButtonElement):
 
         super().__init__(
             *a,
-            # Messages just get passed directly to send_value.
+            # Messages just get passed directly to the parent's send_value.
             send_message_generator=lambda msg: msg,
             optimized_send_midi=False,
             # Prevent mysterious crashes if there's mo
@@ -37,8 +45,14 @@ class SysexToggleElement(SysexButtonElement):
             **k,
         )
 
-    def set_light(self, value):
+    # This can get called via `set_light`, or from elsewhere within the framework.
+    def send_value(self, value: Any):
         assert isinstance(value, bool)
+
+        # Send multiple messages by calling the parent repeatedly.
         messages = self._on_messages if value else self._off_messages
         for message in messages:
-            self.send_value(message)
+            super().send_value(message)
+
+    def set_light(self, value):
+        self.send_value(value)

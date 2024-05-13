@@ -773,6 +773,11 @@ def should_be_backlight_off(device_state: DeviceState):
     assert device_state.backlight is False
 
 
+@then("the backlight should be unmanaged")
+def should_be_backlight_unmanaged(device_state: DeviceState):
+    assert device_state.backlight is None
+
+
 @then("the SS2 should be in standalone mode")
 def should_be_standalone_mode(device_state: DeviceState):
     assert all([t is True for t in device_state.standalone_toggles])
