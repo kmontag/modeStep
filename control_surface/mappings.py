@@ -41,7 +41,6 @@ from .mode import (
     MainModesComponent,
     ModeSelectBehaviour,
     ReleaseBehaviour,
-    SetMutableAttributeMode,
     ToggleModesComponent,
     get_index_str,
     get_main_mode_category,
@@ -272,9 +271,9 @@ class MappingsFactory:
         mappings: Mappings = {}
 
         mappings["Hardware"] = dict(
-            # Turned on by default, so we don't need to enable it everywhere. This
+            # Turned off by default, since we'll be in `_disabled` mode at startup. This
             # shouldn't be toggled except when entering/exiting `_disabled` mode.
-            enable=True,
+            enable=False,
             # Permanent hardware mappings.
             backlight_sysex="backlight_sysex",
             standalone_sysex="standalone_sysex",
@@ -320,7 +319,7 @@ class MappingsFactory:
             # controller to be placed into hosted mode.
             STANDALONE_INIT_MODE_NAME: {
                 "modes": [
-                    self._enter_standalone_mode,
+                    self._enter_standalone_mode(None),
                     # TODO: Make sure LEDs are cleared.
                 ]
             },
@@ -345,9 +344,9 @@ class MappingsFactory:
         assert component
         return component
 
-    # A mode which just enters standalone mode.
-    @lazy_attribute
-    def _enter_standalone_mode(self) -> Mode:
+    # Return a mode which enters standalone mode and activates the given program (if
+    # any), and returns to the background program (if any) on exit.
+    def _enter_standalone_mode(self, standalone_program: Optional[int]) -> Mode:
         hardware = self._get_component("Hardware")
 
         def clear_light_caches():
@@ -356,15 +355,33 @@ class MappingsFactory:
             for light in elements.lights_raw:
                 light.clear_send_cache()
 
+        def set_standalone_program(standalone_program: Optional[int]):
+            if (
+                standalone_program is not None
+                # Program changes cause blinks and other weirdness on the SoftStep. In
+                # case e.g. `standalone_program` is the same as the background program,
+                # we don't need to send both PC messages
+                and standalone_program != hardware.standalone_program
+            ):
+                hardware.standalone_program = standalone_program
+
+                # Make sure the program change gets sent immediately (if the controller
+                # is currently in standalone mode). Otherwise, the program change can
+                # get batched with the hosted-mode sysexes and end up firing after them.
+                self._control_surface._flush_midi_messages()
+
         return CompoundMode(
             # We don't have control of the LEDs, so make sure everything gets rendered
             # as we re-enter hosted mode. This also ensures that LED states will all be
             # rendered on disconnect/reconnect events.
             CallFunctionMode(on_exit_fn=clear_light_caches),
             # Set the program attribute before actually switching into standalone mode,
-            # so that when we leave the compound mode, the attribute doesn't get
-            # switched to something else before the host-mode messages are sent.
-            #
+            # so that we don't send an extra message for whatever program is currently
+            # active.
+            CallFunctionMode(
+                on_enter_fn=partial(set_standalone_program, standalone_program)
+            ),
+            SetAttributeMode(hardware, "standalone", True),
             # The SoftStep seems to keep track of the current LED states for each
             # standalone preset in the setlist. Whenever a preset is loaded, the Init
             # source will fire (potentially setting some LED states explicitly), and any
@@ -377,12 +394,12 @@ class MappingsFactory:
             #
             # We avoid this by switching to a swap mode (whose LED state we don't care
             # about) before returning to host mode.
-            SetAttributeMode(
-                hardware,
-                "standalone_program",
-                self._configuration.background_program,
+            CallFunctionMode(
+                on_exit_fn=partial(
+                    set_standalone_program,
+                    self._configuration.background_program,
+                )
             ),
-            SetAttributeMode(hardware, "standalone", True),
         )
 
     # Mappings of (mode name, alt mode name) -> element for the mode select screen.
@@ -752,18 +769,8 @@ class MappingsFactory:
             CallFunctionMode(on_enter_fn=flush),
             # Make sure the background has no bindings, so no more LED updates get sent.
             LayerMode(self._get_component("Background"), Layer()),
-            # Enter the standalone mode. We should be in the background program at this
-            # point (or the most recent standalone program if no background program is
-            # set).
-            self._enter_standalone_mode,
-            # On exit, flush the original standalone program before re-enabling any LED stuff.
-            CallFunctionMode(on_exit_fn=flush),
-            # Send the actual standalone program for this mode. The modes component may
-            # send new standalone programs within this mode (when quick switching
-            # between standalone presets), so make sure to use the mutable mode.
-            SetMutableAttributeMode(
-                self._get_component("Hardware"), "standalone_program", index - 1
-            ),
+            # Enter standalone mode and select the program.
+            self._enter_standalone_mode(index - 1),
         ]
 
 

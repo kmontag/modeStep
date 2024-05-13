@@ -235,10 +235,10 @@ class modeStep(ControlSurface):
                 (0xC0, self._configuration.disconnect_program),
             ]
 
-        super().__init__(*a, specification=specification, c_instance=c_instance, **k)
-
         # Internal tracker during connect/reconnect events.
         self._mode_after_identified = self._configuration.initial_mode
+
+        super().__init__(*a, specification=specification, c_instance=c_instance, **k)
 
     # Dependencies to be injected throughout the application.
     #
@@ -267,20 +267,21 @@ class modeStep(ControlSurface):
             return super(modeStep, modeStep)._create_elements(specification)
 
     def setup(self):
-        # Activate the background program before doing anything. No-op if no background
-        # program has been set.
-        self.component_map[
-            "Hardware"
-        ].standalone_program = self._configuration.background_program
-        self._flush_midi_messages()
-
-        # Put the controller explicitly into hosted mode. Setting this directly (rather
-        # than in a layer) avoids the need to modify this attribute in every
-        # non-standalone control surface mode, which would send unnecessary sysex
-        # messages on every mode change.
-        self.component_map["Hardware"].standalone = False
-
         super().setup()
+
+        hardware = self.component_map["Hardware"]
+        # Activate the background program before doing anything. The program change will
+        # get sent when the controller is placed into `_stanadlone_init_mode`. No-op if
+        # no background program has been set.
+        hardware.standalone_program = self._configuration.background_program
+
+        # Turn on hosted mode by default, so it doesn't need to be specified explicitly
+        # in normal (non-standalone) mode layers.
+        hardware.standalone = False
+
+        # Activate `_disabled` mode, which will enable the hardware controller in its
+        # `on_leave` callback.
+        self.main_modes.selected_mode = DISABLED_MODE_NAME
 
         logger.info(f"{self.__class__.__name__} setup complete")
 
@@ -311,9 +312,8 @@ class modeStep(ControlSurface):
             self.main_modes.selected_mode is None
             or self.main_modes.selected_mode == DISABLED_MODE_NAME
         ):
-            # Force the controller into standalone mode (so we're starting
-            # from a consistent state), send the standalone background
-            # program if any, and clear the LEDs and display.
+            # Force the controller into standalone mode, and send the standalone
+            # background program, if any.
             self.main_modes.selected_mode = STANDALONE_INIT_MODE_NAME
 
             # After a short delay, load the main desired mode. This

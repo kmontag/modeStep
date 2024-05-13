@@ -77,11 +77,15 @@ def get_index_str(name: str):
     return name.split("_")[-1]
 
 
-class SetMutableAttributeMode(SetAttributeMode):
-    # Set the attribute regardless of whether it's changed.
+class InvertedMode(Mode):
+    def __init__(self, mode: Mode):
+        self._mode = mode
+
+    def enter_mode(self):
+        self._mode.leave_mode()
+
     def leave_mode(self):
-        assert self._attribute
-        setattr(self._get_object(), self._attribute, self._old_value)
+        self._mode.enter_mode()
 
 
 # The mode select button:
@@ -195,17 +199,6 @@ class ReleaseBehaviour(ModeButtonBehaviour):
                 button.mode_unselected_color = f"{mode_color_base_name}.PressDelayed"
             else:
                 button.mode_unselected_color = f"{mode_color_base_name}.Off"
-
-
-class InvertedMode(Mode):
-    def __init__(self, mode: Mode):
-        self._mode = mode
-
-    def enter_mode(self):
-        self._mode.leave_mode()
-
-    def leave_mode(self):
-        self._mode.enter_mode()
 
 
 class MainModesComponent(ModesComponentBase):
