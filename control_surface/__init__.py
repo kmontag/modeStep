@@ -47,6 +47,8 @@ from .session_ring import SessionRingComponent
 from .sysex import (
     DEVICE_FAMILY_BYTES,
     MANUFACTURER_ID_BYTES,
+    SYSEX_BACKLIGHT_OFF_REQUEST,
+    SYSEX_BACKLIGHT_ON_REQUEST,
     SYSEX_STANDALONE_MODE_ON_REQUESTS,
 )
 from .track_controls import TrackControlsComponent, TrackControlsState
@@ -233,6 +235,15 @@ class modeStep(ControlSurface):
             specification.goodbye_messages = [
                 *specification.goodbye_messages,
                 (0xC0, self._configuration.disconnect_program),
+            ]
+        if self._configuration.disconnect_backlight is not None:
+            specification.goodbye_messages = [
+                *specification.goodbye_messages,
+                (
+                    SYSEX_BACKLIGHT_ON_REQUEST
+                    if self._configuration.disconnect_backlight
+                    else SYSEX_BACKLIGHT_OFF_REQUEST
+                ),
             ]
 
         # Internal tracker during connect/reconnect events.
