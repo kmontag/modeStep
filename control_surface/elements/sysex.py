@@ -10,10 +10,6 @@ logger = logging.getLogger(__name__)
 
 
 class SysexButtonElement(SysexElement, ButtonElementMixin):
-    # def send_value(self, *a, **k):
-    #     logger.info(f"SEND from {self.name}")
-    #     return super().send_value(*a, **k)
-
     def is_momentary(self):
         return False
 
@@ -48,13 +44,15 @@ class SysexToggleElement(SysexButtonElement):
         )
 
     # This can get called via `set_light`, or from elsewhere within the framework.
-    def send_value(self, value):
+    def send_value(self, *a, **k):
+        assert len(a) == 1
+        value = a[0]
         assert isinstance(value, bool)
 
         # Send multiple messages by calling the parent repeatedly.
         messages = self._on_messages if value else self._off_messages
         for message in messages:
-            super().send_value(message)
+            super().send_value(message, *a[1:], **k)
 
         self.notify_send_value(value)
 

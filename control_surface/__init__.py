@@ -186,9 +186,9 @@ class Specification(ControlSurfaceSpecification):
     # Force the controller into standalone mode when exiting (this will be redundant if
     # a standalone mode is already active.) The disconnect program change message will
     # be appended below, if configured.
-    goodbye_messages: typing.Collection[typing.Tuple[int, ...]] = (
-        SYSEX_STANDALONE_MODE_ON_REQUESTS
-    )
+    goodbye_messages: typing.Collection[
+        typing.Tuple[int, ...]
+    ] = SYSEX_STANDALONE_MODE_ON_REQUESTS
     send_goodbye_messages_last = True
 
     component_map = {
@@ -468,4 +468,3 @@ class modeStep(ControlSurface):
                 standalone_sysex._deferred_message = None
         finally:
             self.__is_suppressing_hardware = old_suppressing_hardware
-
