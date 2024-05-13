@@ -13,7 +13,7 @@ class HardwareComponent(Component):
     # These are expected to be mapped to `ToggleSysexElement`s or,
     # more specifically, to sysex elements which accept boolean values
     # as colors.
-    backlight_sysex: ColorSysexControl.State = ColorSysexControl(color=True)  # type: ignore
+    backlight_sysex: ColorSysexControl.State = ColorSysexControl(color=False)  # type: ignore
     standalone_sysex: ColorSysexControl.State = ColorSysexControl(color=False)  # type: ignore
 
     ping_button: Any = ButtonControl()
@@ -30,12 +30,13 @@ class HardwareComponent(Component):
         assert send_midi is not None
         self._send_midi = send_midi
 
+        # The program change to send when switching into standalone mode.
         self._standalone_program: Optional[int] = None
-        self._backlight: bool = False
 
-        # Assume the controller is in standalone mode when it's first
-        # connected.
-        self._standalone: bool = True
+        # Initial values for device properties - these will get set externally when
+        # actually setting up this component.
+        self._backlight: bool = False
+        self._standalone: bool = False
 
     @property
     def backlight(self) -> bool:
@@ -85,7 +86,15 @@ class HardwareComponent(Component):
 
     def _update_standalone(self):
         if self.is_enabled():
-            self.standalone_sysex.color = self._standalone
+            # Only send the standalone/hosted toggle when necessary, since it causes
+            # weirdness with the LEDs and occasional performance issues. Note the
+            # `ColorSysexControl` also sends the value once immediately when a control
+            # element is connected - so to avoid false negatives on dis/reconnect, the
+            # control element must be disconnected when the physical device is
+            # disconnected. This is accomplished by entering `_disabled` mode when an
+            # identity request times out.
+            if self._standalone != self.standalone_sysex.color:
+                self.standalone_sysex.color = self._standalone
 
             self._update_standalone_program()
 

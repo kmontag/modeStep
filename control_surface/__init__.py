@@ -44,7 +44,11 @@ from .scene import SceneComponent
 from .session import SessionComponent
 from .session_navigation import SessionNavigationComponent
 from .session_ring import SessionRingComponent
-from .sysex import DEVICE_FAMILY_BYTES, MANUFACTURER_ID_BYTES
+from .sysex import (
+    DEVICE_FAMILY_BYTES,
+    MANUFACTURER_ID_BYTES,
+    SYSEX_STANDALONE_MODE_ON_REQUESTS,
+)
 from .track_controls import TrackControlsComponent, TrackControlsState
 from .transport import TransportComponent
 from .types import Action, TrackControl
@@ -176,6 +180,14 @@ class Specification(ControlSurfaceSpecification):
         *DEVICE_FAMILY_BYTES,
     )
 
+    # Force the controller into standalone mode when exiting (this will be redundant if
+    # a standalone mode is already active.) The disconnect program change message will
+    # be appended below, if configured.
+    goodbye_messages: typing.Collection[typing.Tuple[int, ...]] = (
+        SYSEX_STANDALONE_MODE_ON_REQUESTS
+    )
+    send_goodbye_messages_last = True
+
     component_map = {
         "Clip_Actions": ClipActionsComponent,
         "Device": create_device_component,
@@ -217,6 +229,11 @@ class modeStep(ControlSurface):
         specification.link_session_ring_to_track_selection = (
             self._configuration.link_session_ring_to_track_selection
         )
+        if self._configuration.disconnect_program is not None:
+            specification.goodbye_messages = [
+                *specification.goodbye_messages,
+                (0xC0, self._configuration.disconnect_program),
+            ]
 
         super().__init__(*a, specification=specification, c_instance=c_instance, **k)
 
@@ -250,38 +267,22 @@ class modeStep(ControlSurface):
             return super(modeStep, modeStep)._create_elements(specification)
 
     def setup(self):
-        # Activate the background mode before doing anything. No-op if no background
+        # Activate the background program before doing anything. No-op if no background
         # program has been set.
         self.component_map[
             "Hardware"
         ].standalone_program = self._configuration.background_program
         self._flush_midi_messages()
 
-        # Put the controller explicitly into hosted mode. This avoids
-        # the need to modify this attribute in every non-standalone
-        # control surface mode, which would send unnecessary sysex
+        # Put the controller explicitly into hosted mode. Setting this directly (rather
+        # than in a layer) avoids the need to modify this attribute in every
+        # non-standalone control surface mode, which would send unnecessary sysex
         # messages on every mode change.
         self.component_map["Hardware"].standalone = False
 
         super().setup()
 
         logger.info(f"{self.__class__.__name__} setup complete")
-
-    def disconnect(self):
-        # The individual control element `disconnect()` methods will
-        # be called, which should clear all lights and put the
-        # controller into standalone mode. The order of MIDI events is
-        # not guaranteed, but it shouldn't really matter, since LED
-        # updates will be applied to the current standalone preset
-        # regardless of whether the controller is in standalone or
-        # hosted mode.
-        super().disconnect()
-
-        # Send the final program change message, if any.
-        if self._configuration.disconnect_program:
-            self._send_midi(
-                (0xC0, self._configuration.disconnect_program), optimized=False
-            )
 
     @property
     def main_modes(self):
@@ -301,8 +302,11 @@ class modeStep(ControlSurface):
         if not self._identity_response_timeout_task.is_killed:
             self._identity_response_timeout_task.kill()
 
-        # Don't do anything unless we're currently in disabled
-        # mode. There's no need to force a controller update.
+        # We'll reach this point on startup, as well as when MIDI ports change (due to
+        # hardware disconnects/reconnects or changes in the Live settings). Don't do
+        # anything unless we're currently in disabled mode, i.e. unless we're
+        # transitioning from a disconnected controller - there's no need to switch in
+        # and out of standalone mode otherwise.
         if (
             self.main_modes.selected_mode is None
             or self.main_modes.selected_mode == DISABLED_MODE_NAME
@@ -335,13 +339,13 @@ class modeStep(ControlSurface):
         ):
             self._mode_after_identified = self.main_modes.selected_mode
 
-        # Enter disabled mode, which relinquishes control of
-        # everything. This ensures that nothing will be bound when the
-        # controller is identified, so we won't send a bunch of LED
-        # messages before placing it into hosted mode. (This could
-        # still happen if the controller were connected and
-        # disconnected quickly, but in any case it would just
-        # potentially mess with standalone-mode LEDs.)
+        # Enter disabled mode, which relinquishes control of everything. This ensures
+        # that sysex state values will be invalidated (by disconnecting their control
+        # elements), and nothing will be bound when the controller is next identified,
+        # so we won't send a bunch of LED messages before placing it into hosted
+        # mode. (This could still happen if the controller were connected and
+        # disconnected quickly, but in any case it would just potentially mess with
+        # standalone-mode LEDs.)
         self.main_modes.selected_mode = DISABLED_MODE_NAME
 
     @listens("is_identified")

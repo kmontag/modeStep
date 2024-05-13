@@ -272,8 +272,8 @@ class MappingsFactory:
         mappings: Mappings = {}
 
         mappings["Hardware"] = dict(
-            # Turn on by default, and shouldn't be toggled except when entering/exiting
-            # `_disabled` mode, to avoid sending unnecessary sysexes.
+            # Turned on by default, so we don't need to enable it everywhere. This
+            # shouldn't be toggled except when entering/exiting `_disabled` mode.
             enable=True,
             # Permanent hardware mappings.
             backlight_sysex="backlight_sysex",
