@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import typing
+from contextlib import contextmanager
 from functools import partial
 
 from ableton.v3.base import const, depends, inject, listens, task
@@ -249,6 +250,9 @@ class modeStep(ControlSurface):
         # Internal tracker during connect/reconnect events.
         self._mode_after_identified = self._configuration.initial_mode
 
+        # For hacking around the weird LED behavior when updating the backlight.
+        self.__is_suppressing_hardware: bool = False
+
         super().__init__(*a, specification=specification, c_instance=c_instance, **k)
 
     # Dependencies to be injected throughout the application.
@@ -293,6 +297,12 @@ class modeStep(ControlSurface):
         # Activate `_disabled` mode, which will enable the hardware controller in its
         # `on_leave` callback.
         self.main_modes.selected_mode = DISABLED_MODE_NAME
+
+        # Listen for backlight color values, to hack around the weird LED behavior when
+        # the backlight sysexes get sent.
+        assert self.__on_backlight_send_value is not None
+        assert self.elements
+        self.__on_backlight_send_value.subject = self.elements.backlight_sysex
 
         logger.info(f"{self.__class__.__name__} setup complete")
 
@@ -399,3 +409,63 @@ class modeStep(ControlSurface):
             else self._configuration.initial_mode
         )
         self.main_modes.selected_mode = mode
+
+    # Whenever a backlight sysex is fired, after several seconds, the LEDs revert to the
+    # initial colors of the most recent standalone preset (even when in hosted
+    # mode). This appears to be a firmware bug, as the behavior is also reproducible
+    # when setting the backlight via the SoftStep editor. Work around this by refreshing
+    # device state a few times after the appropriate wait.
+    @lazy_attribute
+    def _backlight_workaround_task(self):
+        def refresh_state_except_backlight():
+            with self.__suppressing_backlight():
+                # Clears all send caches and updates all components.
+                self.update()
+
+        backlight_workaround_task = self._tasks.add(
+            task.sequence(
+                task.wait(3.5),
+                # Keep trying for a bit, sometimes the LEDs blank out later than
+                # expected.
+                *[
+                    task.sequence(
+                        task.run(refresh_state_except_backlight), task.wait(0.2)
+                    )
+                    for _ in range(10)
+                ],
+            )
+        )
+        backlight_workaround_task.kill()
+        return backlight_workaround_task
+
+    @listens("send_value")
+    def __on_backlight_send_value(self, _):
+        # If actual sends are being suppressed, we don't care about the event.
+        if not self.__is_suppressing_hardware:
+            if not self._backlight_workaround_task.is_killed:
+                self._backlight_workaround_task.kill()
+            self._backlight_workaround_task.restart()
+
+    # Use this while force-refreshing the LED state after a backlight update. Suppresses
+    # all messages for the backlight (because that's why we're here in the first place)
+    # and the standalone/hosted state (because it causes LED flicker and shouldn't be
+    # necessary to re-send).
+    @contextmanager
+    def __suppressing_backlight(self, is_suppressing_backlight=True):
+        old_suppressing_hardware = self.__is_suppressing_hardware
+        self.__is_suppressing_hardware = is_suppressing_backlight
+
+        try:
+            assert self.elements
+            backlight_sysex = self.elements.backlight_sysex
+            standalone_sysex = self.elements.standalone_sysex
+
+            with backlight_sysex.deferring_send(), standalone_sysex.deferring_send():
+                yield
+
+                # Hack to prevent any updates from actually getting sent.
+                backlight_sysex._deferred_message = None
+                standalone_sysex._deferred_message = None
+        finally:
+            self.__is_suppressing_hardware = old_suppressing_hardware
+

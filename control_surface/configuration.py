@@ -63,10 +63,6 @@ class Configuration(NamedTuple):
 
     # Backlight on/off state (or `None` to leave it unmanaged) to be set at
     # startup.
-    #
-    # Note as of SoftStep firmware v2.0.3, you might see some weird LED behavior
-    # when using the backlight with modeStep. This appears to be a bug in the
-    # firmware (since it also happens when using the SoftStep editor).
     backlight: Optional[bool] = None
 
     # Backlight on/off state (or `None` to leave it unmanaged) to be set at

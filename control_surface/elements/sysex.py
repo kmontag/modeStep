@@ -1,8 +1,7 @@
 import logging
-from typing import Any, Collection, Optional, Tuple
+from typing import Collection, Tuple
 
 from ableton.v2.control_surface.elements import ButtonElementMixin
-from ableton.v3.base import listenable_property
 from ableton.v3.control_surface.elements import (
     SysexElement,
 )
@@ -23,6 +22,9 @@ class SysexButtonElement(SysexElement, ButtonElementMixin):
 # messages for a light, mode, etc. in the hardware. The element accepts True and False
 # as color values to trigger the on and off messages, respectively.
 class SysexToggleElement(SysexButtonElement):
+    # Fires after all the messages for the given on/off value have been sent.
+    __events__ = ("send_value",)
+
     def __init__(
         self,
         on_messages: Collection[Tuple[int, ...]],
@@ -46,13 +48,15 @@ class SysexToggleElement(SysexButtonElement):
         )
 
     # This can get called via `set_light`, or from elsewhere within the framework.
-    def send_value(self, value: Any):
+    def send_value(self, value):
         assert isinstance(value, bool)
 
         # Send multiple messages by calling the parent repeatedly.
         messages = self._on_messages if value else self._off_messages
         for message in messages:
             super().send_value(message)
+
+        self.notify_send_value(value)
 
     def set_light(self, value):
         self.send_value(value)

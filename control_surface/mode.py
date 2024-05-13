@@ -7,7 +7,6 @@ from enum import Enum
 from functools import partial
 from time import time
 
-from ableton.v2.control_surface.mode import SetAttributeMode
 from ableton.v3.base import depends, listenable_property, memoize
 from ableton.v3.control_surface.controls import ButtonControl
 from ableton.v3.control_surface.mode import (

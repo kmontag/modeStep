@@ -102,16 +102,7 @@ class HardwareComponent(Component):
 
     def _update_standalone(self):
         if self.is_enabled():
-            # Only send the standalone/hosted toggle when necessary, since it causes
-            # weirdness with the LEDs and occasional performance issues. Note the
-            # `ColorSysexControl` also sends the value once immediately when a control
-            # element is connected - so to avoid false negatives on dis/reconnect, the
-            # control element must be disconnected when the physical device is
-            # disconnected. This is accomplished by entering `_disabled` mode when an
-            # identity request times out.
-            if self._standalone != self.standalone_sysex.color:
-                self.standalone_sysex.color = self._standalone
-
+            self.standalone_sysex.color = self._standalone
             self._update_standalone_program()
 
     def _update_standalone_program(self):
