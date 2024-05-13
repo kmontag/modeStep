@@ -70,9 +70,9 @@ def should_enter_standalone_program(
     # Make sure the device is fully out of standalone mode.
     assert all([t is False for t in device_state.standalone_toggles])
 
-    # Events that need to happen in order.
+    # Events that need to happen in order. Note the background program shouldn't get
+    # sent when transitioning in this direction.
     remaining_standalone_requests = sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS
-    received_background_program = False
     received_main_program = False
 
     with _message_queue(device_state) as queue:
@@ -82,26 +82,18 @@ def should_enter_standalone_program(
             message_attrs = message.dict()
 
             if message_attrs["type"] == "sysex":
-                # The background program comes after all sysexes.
-                assert not received_background_program
-
                 remaining_standalone_requests = _dequeue_sysex(
                     message, remaining_standalone_requests
                 )
 
             elif message_attrs["type"] == "program_change":
                 message_program: int = message_attrs["program"]
-                if message_program == BACKGROUND_PROGRAM:
+                if message_program == program:
                     # Make sure the controller has already been put into standalone
                     # mode.
                     assert len(remaining_standalone_requests) == 0
-                    # Assert no duplicates.
-                    assert not received_background_program
-                    received_background_program = True
-                elif message_program == program:
                     # Make sure we got the background program (and therefore also the
                     # switch to standalone mode) prior to the main one.
-                    assert received_background_program
                     received_main_program = True
                 else:
                     raise RuntimeError(f"received unexpected program change: {message}")
@@ -117,7 +109,6 @@ def should_enter_standalone_program(
             queue.empty()
             and all(device_state.standalone_toggles)
             and len(remaining_standalone_requests) == 0
-            and received_background_program
             and received_main_program
         )
 
