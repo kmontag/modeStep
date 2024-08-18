@@ -294,19 +294,22 @@ def override_nav(
 
 
 def _override_elements_with_nav(
+    # Names of elements representing each direction.
     left: str,
     right: str,
     up: str,
     down: str,
+    # Nav to apply in the horizontal/vertical directions, or None if no nav should be specified.
     horizontal: Optional[NavigationTarget],
     vertical: Optional[NavigationTarget],
 ) -> List[ElementOverride]:
     results: List[ElementOverride] = []
-    for down_element, up_element, target in (
+    elements_and_targets: Iterable[Tuple[str, str, Optional[NavigationTarget]]] = (
         (left, right, horizontal),
         # The down button increases values - think selected scene.
         (up, down, vertical),
-    ):
+    )
+    for down_element, up_element, target in elements_and_targets:
         # Get a unique control name based on an element name.
         def background_control_name(element: str):
             return element.replace("[", "_").replace("]", "_")
