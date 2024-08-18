@@ -11,8 +11,8 @@ package-mode = false
 
 [tool.poetry.dependencies]
 # Newer python version for development tasks. Note this is different from Live's built-in
-# version.
-python = "^3.12"
+# version (3.7), since some development packages have dropped support for 3.7.
+python = "^3.8"
 
 # Packages available at runtime in Live's "site-packages" folder.
 future = "0.18.2"
