@@ -50,7 +50,18 @@ from .slider import (
 from .sysex import SysexButtonElement, SysexToggleElement
 
 if TYPE_CHECKING:
+    from typing_extensions import NotRequired
+
     from ..configuration import Configuration
+
+    AddSubmatrixKwargs = TypedDict(
+        "AddSubmatrixKwargs",
+        {
+            "rows": NotRequired[Iterable[int]],
+            "columns": NotRequired[Iterable[int]],
+            "is_private": NotRequired[bool],
+        },
+    )
 
 logger = getLogger(__name__)
 
@@ -244,7 +255,7 @@ class Elements(ElementsBase):
             grid: ButtonMatrixElement = getattr(self, grid_submatrix_name)
 
             # Segments.
-            for segment_name, attrs in {
+            segment_names_to_attrs: Dict[str, AddSubmatrixKwargs] = {
                 "top": {"rows": (0, 1)},
                 "bottom": {"rows": (1, 2)},
                 "left": {"columns": (0, int(NUM_GRID_COLS * controls_per_key / 2))},
@@ -254,7 +265,9 @@ class Elements(ElementsBase):
                         NUM_GRID_COLS * controls_per_key,
                     )
                 },
-            }.items():
+            }
+
+            for segment_name, attrs in segment_names_to_attrs.items():
                 segment_submatrix_name = f"grid_{segment_name}_{category_base_name}"
                 self.add_submatrix(grid, segment_submatrix_name, **attrs)
 
