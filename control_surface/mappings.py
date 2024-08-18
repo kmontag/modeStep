@@ -456,12 +456,13 @@ class MappingsFactory:
         vertical_target: Optional[NavigationTarget],
     ) -> List[SimpleModeSpecification]:
         component_mappings: Dict[str, Dict[str, str]] = {}
-        for navigation_target, down_button, up_button in (
+        targets_and_elements: Iterable[Tuple[Optional[NavigationTarget], str, str]] = (
             (horizontal_target, "nav_left_button", "nav_right_button"),
             # The down button generally increases values, e.g. the selected scene index,
             # session ring position...
             (vertical_target, "nav_up_button", "nav_down_button"),
-        ):
+        )
+        for navigation_target, down_button, up_button in targets_and_elements:
             if navigation_target:
                 component, down_attribute, up_attribute = NAVIGATION_TARGET_MAPPINGS[
                     navigation_target
