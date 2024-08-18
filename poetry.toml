@@ -1,0 +1,3 @@
+[virtualenvs]
+# Create the environemnt locally in .venv/ rather than an external location.
+in-project = true
