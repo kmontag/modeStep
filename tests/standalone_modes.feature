@@ -39,6 +39,7 @@ Feature: Standalone modes
     And I wait to trigger a long-press
     Then releasing the standalone exit button should enter hosted mode
     And the display should be "Prss"
+    And light 5 should be solid green
 
     # Go to the alternate standalone mode.
     When I press key 0

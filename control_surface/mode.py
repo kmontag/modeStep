@@ -283,6 +283,16 @@ class MainModesComponent(ModesComponentBase):
         if self.is_enabled():
             self._get_mode_behaviour(mode).update_button(self, mode, self.selected_mode)
 
+    def _update_mode_controls(self, selected_mode):
+        super()._update_mode_controls(selected_mode)
+
+        # Sometime in the Live 12 lifecycle, this stopped getting called automatically
+        # during mode changes. Some mode buttons (track controls, mode select) have a
+        # color which is dependent on state that might change during a mode change, and
+        # need to be explicitly refreshed.
+        for mode in self._mode_list:
+            self.update_mode_button(mode)
+
     @standalone_exit_button.released_immediately
     def standalone_exit_button(self, _):  # type: ignore
         self.push_mode(MODE_SELECT_MODE_NAME)
