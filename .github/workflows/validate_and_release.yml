@@ -51,7 +51,7 @@ jobs:
       # the expensive installation/decompilation process if possible.
       - name: Get Ableton Live version
         id: get-ableton-live-version
-        run: echo "::set-output name=version::$(brew info --cask --json=v2 ableton-live-lite | jq -r '.casks[0].version')"
+        run: echo "version=$(brew info --cask --json=v2 ableton-live-lite | jq -r '.casks[0].version')" >> $GITHUB_OUTPUT
 
       - name: Cache Ableton Live decompilation
         uses: actions/cache@v3
@@ -70,3 +70,33 @@ jobs:
 
       # Run the command manually (not using `make`) to avoid failures if Live isn't installed.
       - run: poetry run pyright .
+
+  release:
+    name: Publish release to GitHub
+    runs-on: ubuntu-latest
+    concurrency: release
+    environment:
+      name: release
+
+    if: github.event_name == 'push'
+
+    # Make sure everything else succeeds before releasing.
+    needs:
+      - lint
+      - check-types
+
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+      - name: Semantic Release
+        uses: python-semantic-release/python-semantic-release@v9.8.6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
