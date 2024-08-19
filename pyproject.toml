@@ -86,3 +86,10 @@ extend-ignore = ["E501"]
 # Explicitly specify Live as a standard library to avoid potential
 # inconsistencies across systems when sorting imports.
 extra-standard-library = ["Live"]
+
+[tool.semantic_release]
+major_on_zero = false
+allow_zero_version = true
+version_toml = [
+  "pyproject.toml:tool.poetry.version",
+]
