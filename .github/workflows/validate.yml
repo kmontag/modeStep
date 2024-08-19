@@ -20,7 +20,7 @@ jobs:
           python-version: 3.8
           cache: pip
       - run: python -m pip install poetry
-      - run: poetry install
+      - run: make install
       - run: make lint
 
   check-types:
@@ -31,9 +31,6 @@ jobs:
         id: set-up-homebrew
         uses: Homebrew/actions/setup-homebrew@master
 
-      - name: Install Ableton Live
-        run: brew install --cask ableton-live-lite
-
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
@@ -41,5 +38,35 @@ jobs:
           cache: pip
 
       - run: python -m pip install poetry
-      - run: poetry install
-      - run: make check
+      - run: make install
+
+      # LLM_TODO: The above cacheable actions create and populate the
+      # "__ext__/System_MIDIRemoteScripts/" directory. This content can be cached based
+      # on the Ableton Live version, which can be retrieved using `brew info --cask
+      # --json=v2 ableton-live-lite | jq -r '.casks[0].version'`. Rewrite the actions so
+      # that they only run if necessary, and cache the generated decompilation
+      # directory between runs.
+
+      # We can cache the decompiled remote scripts based on the Live version, to avoid
+      # the expensive installation/decompilation process if possible.
+      - name: Get Ableton Live version
+        id: get-ableton-live-version
+        run: echo "::set-output name=version::$(brew info --cask --json=v2 ableton-live-lite | jq -r '.casks[0].version')"
+
+      - name: Cache Ableton Live decompilation
+        uses: actions/cache@v3
+        id: cache-decompilation
+        with:
+          path: __ext__/System_MIDIRemoteScripts/
+          key: ableton-live-decompilation-${{ steps.get-ableton-live-version.outputs.version }}
+
+      - name: Install Ableton Live
+        if: steps.cache-decompilation.outputs.cache-hit != 'true'
+        run: brew install --cask ableton-live-lite
+
+      - name: Decompile system remote scripts libraries
+        if: steps.cache-decompilation.outputs.cache-hit != 'true'
+        run: make decompile
+
+      # Run the command manually (not using `make`) to avoid failures if Live isn't installed.
+      - run: poetry run pyright .

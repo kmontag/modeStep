@@ -8,8 +8,14 @@ TEST_PROJECT_SET_NAMES := backlight default overrides standalone wide_clip_launc
 TEST_PROJECT_DIR := tests/modeStep_tests_project
 TEST_PROJECT_SETS := $(addprefix $(TEST_PROJECT_DIR)/, $(addsuffix .als, $(TEST_PROJECT_SET_NAMES)))
 
-.PHONY: deps
-deps:  .make.install __ext__/System_MIDIRemoteScripts/.make.decompile
+.PHONY: default
+default: lint check
+
+.PHONY: install
+install: .make.install
+
+.PHONY: decompile
+decompile: __ext__/System_MIDIRemoteScripts/.make.decompile
 
 .PHONY: lint
 lint: .make.install
