@@ -3,3 +3,6 @@
 # PRs will be rebased before being merged. Individual commits need to
 # follow the semantic PR spec.
 commitsOnly: true
+
+# Allow reverts.
+allowRevertCommits: true
