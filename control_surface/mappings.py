@@ -15,7 +15,7 @@ from typing import (
 )
 
 from ableton.v2.control_surface.mode import SetAttributeMode
-from ableton.v3.base import depends, find_if, memoize
+from ableton.v3.base import const, depends, find_if, memoize
 from ableton.v3.control_surface import Component, ControlSurface
 from ableton.v3.control_surface.component_map import ComponentMap
 from ableton.v3.control_surface.layer import Layer
@@ -40,6 +40,7 @@ from .mode import (
     MainModeCategory,
     MainModesComponent,
     ModeSelectBehaviour,
+    PersistentSetAttributeMode,
     ReleaseBehaviour,
     ToggleModesComponent,
     get_index_str,
@@ -319,7 +320,16 @@ class MappingsFactory:
             # controller to be placed into hosted mode.
             STANDALONE_INIT_MODE_NAME: {
                 "modes": [
-                    self._enter_standalone_mode(None),
+                    # Unlike other standalone modes, the init mode doesn't get exited
+                    # via a button press (which usually triggers a delay before sending
+                    # the hosted mode sysexes). Instead, we need to enter hosted mode
+                    # explicitly when leaving the mode.
+                    InvertedMode(
+                        PersistentSetAttributeMode(
+                            self._get_component("Hardware"), "standalone", False
+                        )
+                    ),
+                    self._enter_standalone_mode(self._configuration.background_program),
                     # TODO: Make sure LEDs are cleared.
                 ]
             },
@@ -365,15 +375,11 @@ class MappingsFactory:
             ):
                 hardware.standalone_program = standalone_program
 
-                # Make sure the program change gets sent immediately (if the controller
-                # is currently in standalone mode). Otherwise, the program change can
-                # get batched with the hosted-mode sysexes and end up firing after them.
-                self._control_surface._flush_midi_messages()
-
         return CompoundMode(
             # We don't have control of the LEDs, so make sure everything gets rendered
             # as we re-enter hosted mode. This also ensures that LED states will all be
-            # rendered on disconnect/reconnect events.
+            # rendered on disconnect/reconnect events, since we pass through
+            # _standalone_init mode in that case.
             CallFunctionMode(on_exit_fn=clear_light_caches),
             # Set the program attribute before actually switching into standalone mode,
             # so that we don't send an extra message for whatever program is currently
@@ -381,7 +387,18 @@ class MappingsFactory:
             CallFunctionMode(
                 on_enter_fn=partial(set_standalone_program, standalone_program)
             ),
-            SetAttributeMode(hardware, "standalone", True),
+            # Send the standalone message on enter, but not on exit. Regardless of
+            # whether `_flush_midi_messages()` is called, `_c_instance.send_midi` seems
+            # to batch messages such that syses messages come first on a given
+            # frame. Re-entering hosted mode is handled by the modes component, in the
+            # standalone exit button handlers.
+            #
+            # Note that the exit button is the only way that a mode change can be
+            # triggered from a standalone mode, except for disconnects (where we don't
+            # need to send any additional messages) or transitions out of
+            # _standalone_init_mode (which are handled specifically in that mode's
+            # definition).
+            PersistentSetAttributeMode(hardware, "standalone", True),
             # The SoftStep seems to keep track of the current LED states for each
             # standalone preset in the setlist. Whenever a preset is loaded, the Init
             # source will fire (potentially setting some LED states explicitly), and any
@@ -392,8 +409,8 @@ class MappingsFactory:
             # for example, toggle buttons that don't use the Init source for LED
             # setup.
             #
-            # We avoid this by switching to a swap mode (whose LED state we don't care
-            # about) before returning to host mode.
+            # We avoid this by switching to a background program (whose LED state we
+            # don't care about) before returning to host mode.
             CallFunctionMode(
                 on_exit_fn=partial(
                     set_standalone_program,

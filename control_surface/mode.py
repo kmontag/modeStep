@@ -7,16 +7,18 @@ from enum import Enum
 from functools import partial
 from time import time
 
-from ableton.v3.base import depends, listenable_property, memoize
+from ableton.v3.base import depends, listenable_property, memoize, task
 from ableton.v3.control_surface.controls import ButtonControl
 from ableton.v3.control_surface.mode import (
     CallFunctionMode,
     Mode,
     ModeButtonBehaviour,
+    SetAttributeMode,
 )
 from ableton.v3.control_surface.mode import ModesComponent as ModesComponentBase
 
 from .hardware import HardwareComponent
+from .live import lazy_attribute
 from .types import MainMode
 
 if typing.TYPE_CHECKING:
@@ -24,8 +26,17 @@ if typing.TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Mode activated while the controller is disconnected. Disables the hardware and
+# anything that could otherwise send MIDI messages.
 DISABLED_MODE_NAME = "_disabled"
+
+# Mode activated before transitioning out of disabled mode. Puts the controller into
+# standalone mode and activates the background program.
 STANDALONE_INIT_MODE_NAME = "_standalone_init"
+
+# Mode activated before transitioning from a user standalone mode to hosted mode. Pauses
+# briefly before performing the switch, to
+STANDALONE_TRANSITION_MODE_NAME = "_standalone_transition"
 
 MODE_SELECT_MODE_NAME: MainMode = "mode_select"
 
@@ -85,6 +96,13 @@ class InvertedMode(Mode):
 
     def leave_mode(self):
         self._mode.enter_mode()
+
+
+class PersistentSetAttributeMode(SetAttributeMode):
+    """Set an attribute when entering the mode, but not when leaving it."""
+
+    def leave_mode(self):
+        pass
 
 
 # The mode select button:
@@ -210,6 +228,8 @@ class MainModesComponent(ModesComponentBase):
     # necessary.
     entered_at = listenable_property.managed(0.0)
 
+    _tasks: task.TaskGroup  # type: ignore
+
     @depends(configuration=None, hardware=None)
     def __init__(
         self,
@@ -232,6 +252,25 @@ class MainModesComponent(ModesComponentBase):
         # The non-transient mode (different from the current one) that
         # was last seen before the current one.
         self._last_non_transient_mode = None
+
+        # During setup of mode components, Live activates their first added mode (see
+        # `ControlSurfaceMappingMixin::_setup_modes_component`). Add a blank mode
+        # immediately to make this activation a no-op. We'll select the "real" first
+        # mode (disabled mode) after the component setup is complete.
+        self.add_mode("_pre_init", CallFunctionMode())
+
+        # Internal mode for transitioning from standalone to hosted mode, which requires
+        # a pause (to get correct MIDI message ordering) before activating the next real
+        # mode.
+        self.add_mode(
+            STANDALONE_TRANSITION_MODE_NAME,
+            CallFunctionMode(on_enter_fn=self._prepare_standalone_transition),
+        )
+
+        # Tracker for the post-delay behavior of the standalone transition mode,
+        # i.e. mode select or previous mode. The initial value doesn't matter; this will
+        # get set when the standalone exit button is pressed.
+        self.__standalone_transition_is_mode_select: bool = False
 
     # Transient modes don't get added to the mode history, and switch
     # the mode select button to a "cancel" button.
@@ -293,9 +332,32 @@ class MainModesComponent(ModesComponentBase):
         for mode in self._mode_list:
             self.update_mode_button(mode)
 
+    def _prepare_standalone_transition(self):
+        # Delay the actual transition out of standalone mode to allow the background
+        # program change message to be sent.
+        self._finish_standalone_transition_task.restart()
+
+    @lazy_attribute
+    def _finish_standalone_transition_task(self):
+        finish_standalone_transition_task = self._tasks.add(
+            task.sequence(task.delay(0), task.run(self._finish_standalone_transition))
+        )
+        finish_standalone_transition_task.kill()
+        return finish_standalone_transition_task
+
+    def _finish_standalone_transition(self):
+        # After the delay, the background program change message should have been sent,
+        # so we can now send the actual sysexes to switch to hosted mode.
+        self._hardware.standalone = False
+        if self.__standalone_transition_is_mode_select:
+            self.push_mode(MODE_SELECT_MODE_NAME)
+        else:
+            self.select_last_non_transient_mode()
+
     @standalone_exit_button.released_immediately
     def standalone_exit_button(self, _):  # type: ignore
-        self.push_mode(MODE_SELECT_MODE_NAME)
+        self.__standalone_transition_is_mode_select = True
+        self.push_mode(STANDALONE_TRANSITION_MODE_NAME)
 
     @standalone_exit_button.released_delayed
     def standalone_exit_button(self, _):
@@ -321,7 +383,8 @@ class MainModesComponent(ModesComponentBase):
             self._last_non_transient_mode = self._current_non_transient_mode
             self._current_non_transient_mode = tmp
         else:
-            self.select_last_non_transient_mode()
+            self.__standalone_transition_is_mode_select = False
+            self.push_mode(STANDALONE_TRANSITION_MODE_NAME)
 
     def _do_enter_mode(self, name):
         logger.info(f"enter mode: {name}")
