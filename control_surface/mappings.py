@@ -40,6 +40,7 @@ from .mode import (
     MainModeCategory,
     MainModesComponent,
     ModeSelectBehaviour,
+    PersistentSetAttributeMode,
     ReleaseBehaviour,
     ToggleModesComponent,
     get_index_str,
@@ -319,7 +320,16 @@ class MappingsFactory:
             # controller to be placed into hosted mode.
             STANDALONE_INIT_MODE_NAME: {
                 "modes": [
-                    self._enter_standalone_mode(None),
+                    # Unlike other standalone modes, the init mode doesn't get exited
+                    # via the `standalone_exit_button`, which would normally invoke the
+                    # transition to hosted mode. Instead, we need to enter hosted mode
+                    # explicitly when leaving the mode.
+                    InvertedMode(
+                        PersistentSetAttributeMode(
+                            self._get_component("Hardware"), "standalone", False
+                        )
+                    ),
+                    self._enter_standalone_mode(self._configuration.background_program),
                     # TODO: Make sure LEDs are cleared.
                 ]
             },
@@ -359,21 +369,18 @@ class MappingsFactory:
             if (
                 standalone_program is not None
                 # Program changes cause blinks and other weirdness on the SoftStep. In
-                # case e.g. `standalone_program` is the same as the background program,
-                # we don't need to send both PC messages
+                # case `standalone_program` is the same as the current program (e.g. if
+                # it's the same as the already-set background program), we don't need to
+                # send a new PC message.
                 and standalone_program != hardware.standalone_program
             ):
                 hardware.standalone_program = standalone_program
 
-                # Make sure the program change gets sent immediately (if the controller
-                # is currently in standalone mode). Otherwise, the program change can
-                # get batched with the hosted-mode sysexes and end up firing after them.
-                self._control_surface._flush_midi_messages()
-
         return CompoundMode(
             # We don't have control of the LEDs, so make sure everything gets rendered
             # as we re-enter hosted mode. This also ensures that LED states will all be
-            # rendered on disconnect/reconnect events.
+            # rendered on disconnect/reconnect events, since we pass through
+            # _standalone_init mode in that case.
             CallFunctionMode(on_exit_fn=clear_light_caches),
             # Set the program attribute before actually switching into standalone mode,
             # so that we don't send an extra message for whatever program is currently
@@ -381,7 +388,23 @@ class MappingsFactory:
             CallFunctionMode(
                 on_enter_fn=partial(set_standalone_program, standalone_program)
             ),
-            SetAttributeMode(hardware, "standalone", True),
+            # Send the standalone message on enter, but not the hosted mode message on
+            # exit.
+            #
+            # Regardless of whether `_flush_midi_messages()` is called,
+            # `_c_instance.send_midi` seems to batch messages such that sysex messages
+            # come first on a given frame, meaning that if we sent the hosted-mode sysex
+            # on exit, we'd end up sending the background program change _after_ the
+            # controller was already in hosted mode (which defeats the purpose).
+            #
+            # Re-entering hosted mode happens (if necessary) when the next mode is
+            # within the standalone exit button handler. Note this relies on the fact
+            # that the `standalone_exit_button` is the only way to re-enter hosted mode
+            # from a standalone mode, except for transitions out of
+            # _standalone_init_mode (where the background PC gets sent at mode entry,
+            # and the transition to hosted mode is handled explicitly in the mode
+            # definition).
+            PersistentSetAttributeMode(hardware, "standalone", True),
             # The SoftStep seems to keep track of the current LED states for each
             # standalone preset in the setlist. Whenever a preset is loaded, the Init
             # source will fire (potentially setting some LED states explicitly), and any
@@ -392,8 +415,8 @@ class MappingsFactory:
             # for example, toggle buttons that don't use the Init source for LED
             # setup.
             #
-            # We avoid this by switching to a swap mode (whose LED state we don't care
-            # about) before returning to host mode.
+            # We avoid this by switching to a background program (whose LED state we
+            # don't care about) before returning to host mode.
             CallFunctionMode(
                 on_exit_fn=partial(
                     set_standalone_program,
