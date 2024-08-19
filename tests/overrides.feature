@@ -256,12 +256,14 @@ Feature: Overrides from config
     And light 4 should be off
     And light 5 should be solid green
 
+    # Check that a track can be selected.
     When I press key 6
     Then light 6 should be solid green
     And lights 7-9 should be solid red
     And lights 1-3 should be solid red
     And light 4 should be off
 
+    # Test that the play button works.
     When I press key 5
     Then light 5 should be blinking green
 
