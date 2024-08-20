@@ -15,7 +15,7 @@ from typing import (
 )
 
 from ableton.v2.control_surface.mode import SetAttributeMode
-from ableton.v3.base import const, depends, find_if, memoize
+from ableton.v3.base import depends, find_if, memoize
 from ableton.v3.control_surface import Component, ControlSurface
 from ableton.v3.control_surface.component_map import ComponentMap
 from ableton.v3.control_surface.layer import Layer
@@ -323,7 +323,10 @@ class MappingsFactory:
                     # Unlike other standalone modes, the init mode doesn't get exited
                     # via a button press (which usually triggers a delay before sending
                     # the hosted mode sysexes). Instead, we need to enter hosted mode
-                    # explicitly when leaving the mode.
+                    # explicitly when leaving the mode. Since we already set the
+                    # background program on entry, this shouldn't run into the MIDI
+                    # batching issue that the other standalone modes need to work
+                    # around.
                     InvertedMode(
                         PersistentSetAttributeMode(
                             self._get_component("Hardware"), "standalone", False
@@ -359,28 +362,47 @@ class MappingsFactory:
     def _enter_standalone_mode(self, standalone_program: Optional[int]) -> Mode:
         hardware = self._get_component("Hardware")
 
-        def clear_light_caches():
+        def clear_send_caches():
             elements = self._control_surface.elements
             assert elements
+
+            elements.display.clear_send_cache()
             for light in elements.lights_raw:
                 light.clear_send_cache()
+
+        # Clear any pending CC messages, without actually sending them. The flush is
+        # necessary to prevent the messages from getting batched and sent after the
+        # program change. There's also no reason to send CCs before switching to
+        # standalone mode, as the display will get overwritten by the hardware, so we
+        # can just suppress them during the flush.
+        def flush():
+            with self._control_surface.suppressing_send_midi(
+                # CC status byte is 0xBx.
+                lambda msg: 0xB0 <= msg[0] < 0xC0
+            ):
+                self._control_surface._ownership_handler.commit_ownership_changes()
+                self._control_surface._flush_midi_messages()
 
         def set_standalone_program(standalone_program: Optional[int]):
             if (
                 standalone_program is not None
                 # Program changes cause blinks and other weirdness on the SoftStep. In
                 # case e.g. `standalone_program` is the same as the background program,
-                # we don't need to send both PC messages
+                # we don't need to send both PC messages.
                 and standalone_program != hardware.standalone_program
             ):
                 hardware.standalone_program = standalone_program
 
         return CompoundMode(
-            # We don't have control of the LEDs, so make sure everything gets rendered
-            # as we re-enter hosted mode. This also ensures that LED states will all be
-            # rendered on disconnect/reconnect events, since we pass through
-            # _standalone_init mode in that case.
-            CallFunctionMode(on_exit_fn=clear_light_caches),
+            # We don't have control of the LEDs and display while standalone mode is
+            # active, so make sure everything gets rendered as we re-enter hosted
+            # mode. This also ensures that LED states will all be rendered on
+            # disconnect/reconnect events, since we pass through _standalone_init mode
+            # in that case.
+            CallFunctionMode(on_exit_fn=clear_send_caches),
+            # Flush accumulated MIDI data before beginning the transittion to standalone
+            # mode.
+            CallFunctionMode(on_enter_fn=flush),
             # Set the program attribute before actually switching into standalone mode,
             # so that we don't send an extra message for whatever program is currently
             # active.
@@ -761,32 +783,15 @@ class MappingsFactory:
     def _standalone_mode(self, name: MainMode) -> _MainModeSpecification:
         index = int(get_index_str(name))
 
-        # Force all current MIDI/control state to be written to the device. This
-        # works-ish - sometimes CCs still get sent after the switch to standalone mode
-        # for some reason. But they seem to always get flushed before the main program
-        # change is sent.
-        def flush():
-            self._control_surface._ownership_handler.commit_ownership_changes()
-            self._control_surface._flush_midi_messages()
-
-            # Make sure the display gets re-rendered in hosted mode even if the text
-            # hasn't changed.
-            elements = self._control_surface.elements
-            assert elements
-            elements.display.clear_send_cache()
-
         return [
+            # Make sure the background has no bindings, so no more LED updates get sent.
+            LayerMode(self._get_component("Background"), Layer()),
             # We use the same CC as nav left (80) for the exit button, so a) we don't
             # reduce the number of useful CCs for MIDI mapping in standalone mode, and
             # b) the mode select button could be triggered by button mashing if the
             # controller ever got stuck in hosted mode when it was supposed to be in
             # standalone mode.
             dict(component="Main_Modes", standalone_exit_button="nav_left_button"),
-            # Make sure all LEDs are cleared. This affects the standalone background
-            # program state.
-            CallFunctionMode(on_enter_fn=flush),
-            # Make sure the background has no bindings, so no more LED updates get sent.
-            LayerMode(self._get_component("Background"), Layer()),
             # Enter standalone mode and select the program.
             self._enter_standalone_mode(index - 1),
         ]

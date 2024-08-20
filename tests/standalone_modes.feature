@@ -2,6 +2,10 @@ Feature: Standalone modes
   Background:
     Given the standalone set is open
 
+  Scenario: Setting the standalone background mode
+    Given the SS2 is initialized
+    Then the standalone background program should be active
+
   Scenario: Switching into and out of standalone modes
     Given the SS2 is initialized
     Then the display should be "Trns"

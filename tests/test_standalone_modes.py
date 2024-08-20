@@ -1,6 +1,6 @@
 import asyncio
 from contextlib import contextmanager
-from typing import Collection, Generator, Tuple
+from typing import Collection, Generator, Optional, Tuple, Union
 
 import mido
 from conftest import (
@@ -12,7 +12,7 @@ from conftest import (
     sysex,
 )
 from pytest_bdd import parsers, scenarios, then, when
-from typing_extensions import Never
+from typing_extensions import Never, TypeAlias
 
 # Standalone background program configured in the standalone Live set.
 BACKGROUND_PROGRAM = 10
@@ -34,18 +34,40 @@ def _dequeue_sysex(
     return queue
 
 
+MessageOrException: TypeAlias = Union[Tuple[mido.Message, None], Tuple[None, Exception]]
+
+
 @contextmanager
 def _message_queue(
     device_state: DeviceState,
-) -> Generator["asyncio.Queue[mido.Message]", Never, None]:
-    queue: asyncio.Queue[mido.Message] = asyncio.Queue()
+) -> Generator[
+    asyncio.Queue[MessageOrException],
+    Never,
+    None,
+]:
+    queue: asyncio.Queue[MessageOrException] = asyncio.Queue()
 
-    def on_message(message: mido.Message):
-        queue.put_nowait(message)
+    def on_message(msg: Optional[mido.Message], exc: Optional[Exception]):
+        if exc is not None:
+            assert msg is None
+            queue.put_nowait((None, exc))
+        else:
+            assert msg is not None
+            queue.put_nowait((msg, None))
 
     remove_listener = device_state.add_message_listener(on_message)
     yield queue
     remove_listener()
+
+
+async def _get_next_message(
+    message_queue: asyncio.Queue[MessageOrException],
+) -> mido.Message:
+    message, exc = await message_queue.get()
+    if exc is not None:
+        raise exc
+    assert message is not None
+    return message
 
 
 @when("I hold the standalone exit button")
@@ -77,8 +99,9 @@ def should_enter_standalone_program(
 
     with _message_queue(device_state) as queue:
         cc_action(get_cc_for_key(key_number), "release", port=ioport, loop=loop)
+        num_initial_ccs: int = 0
         while not received_main_program:
-            message = loop.run_until_complete(queue.get())
+            message = loop.run_until_complete(_get_next_message(queue))
             message_attrs = message.dict()
 
             if message_attrs["type"] == "sysex":
@@ -98,23 +121,42 @@ def should_enter_standalone_program(
                 else:
                     raise RuntimeError(f"received unexpected program change: {message}")
             elif message.is_cc():
-                # CCs can be received as long as the main standalone program hasn't been
-                # sent.
-                pass
+                # Allow up to a small number of initial CCs due to the interface being
+                # updated, since these can potentially get sent between the release CC
+                # message and the actual standalone mode activation. The worst case here
+                # appears to be 6 CCs in total (4 display CCs and 2 LED CCs).
+                assert (
+                    len(remaining_standalone_requests)
+                    == len(sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS)
+                ), f"Received CC message after beginning standalone transition: {message}"
+
+                num_initial_ccs += 1
+                assert (
+                    num_initial_ccs <= 6
+                ), f"Got too many CCs before beginning standalone mode transition: {message}"
+
             else:
-                raise RuntimeError(f"received unrecognized message: {message}")
+                raise RuntimeError(f"Received unrecognized message: {message}")
 
         # Sanity check, this should never fail given the business logic above.
         assert (
-            queue.empty()
-            and all(device_state.standalone_toggles)
+            all(device_state.standalone_toggles)
             and len(remaining_standalone_requests) == 0
             and received_main_program
         )
 
-        # Wait a little while to make sure no CCs get sent.
+        # Wait a little while to make sure no additional CCs or other messages get sent.
         loop.run_until_complete(asyncio.sleep(0.5))
-        assert queue.empty()
+        assert (
+            queue.empty()
+        ), f"Received additional messages after standalone transition:\n{queue})"
+
+
+@then("the standalone background program should be active")
+def should_have_standalone_background_program_active(device_state: DeviceState):
+    assert (
+        device_state.standalone_program == BACKGROUND_PROGRAM
+    ), f"Expected background program ({BACKGROUND_PROGRAM}) to be active, but got {device_state.standalone_program}"
 
 
 @then(
@@ -133,7 +175,7 @@ def should_switch_directly_to_standalone_program(
     with _message_queue(device_state) as queue:
         cc_action(STANDALONE_EXIT_CC, "release", port=ioport, loop=loop)
         # Make sure we get one message for the program change.
-        message = loop.run_until_complete(queue.get())
+        message = loop.run_until_complete(_get_next_message(queue))
         message_attrs = message.dict()
         assert message_attrs["type"] == "program_change"
         assert message_attrs["program"] == program
@@ -156,7 +198,7 @@ def should_enter_hosted_mode(
         stabilize_after_cc_action(loop=loop, device_state=device_state)
 
         # First message needs to be the background program.
-        message = loop.run_until_complete(queue.get())
+        message = loop.run_until_complete(_get_next_message(queue))
         message_attrs = message.dict()
         assert (
             message_attrs["type"] == "program_change"
@@ -166,16 +208,32 @@ def should_enter_hosted_mode(
         # Now make sure we get the right sysex messages.
         remaining_hosted_requests = sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS
         while any(remaining_hosted_requests):
-            message = loop.run_until_complete(queue.get())
+            message = loop.run_until_complete(_get_next_message(queue))
             message_attrs = message.dict()
 
-            if message_attrs["type"] == "sysex":
-                remaining_hosted_requests = _dequeue_sysex(
-                    message, remaining_hosted_requests
-                )
+            assert (
+                message_attrs["type"] == "sysex"
+            ), f"Got non-sysex message before switching out of standalone mode: {message}"
+
+            remaining_hosted_requests = _dequeue_sysex(
+                message, remaining_hosted_requests
+            )
 
         # Sanity checks.
         assert (
             all([d is False for d in device_state.standalone_toggles])
             and len(remaining_hosted_requests) == 0
         )
+
+        # All additional messages to this point should be CCs.
+        might_have_more_messages = True
+        while might_have_more_messages:
+            try:
+                message, exception = queue.get_nowait()
+                assert exception is None
+                assert message is not None
+                assert (
+                    message.is_cc()
+                ), f"Got non-CC message after switching to hosted mode: {message}"
+            except asyncio.QueueEmpty:
+                might_have_more_messages = False

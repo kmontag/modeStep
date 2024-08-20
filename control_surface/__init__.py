@@ -59,7 +59,12 @@ from .ui import TRACK_CONTROLS
 from .undo_redo import UndoRedoComponent
 from .view_control import ViewControlComponent
 
+if typing.TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
 logger = logging.getLogger(__name__)
+
+T = typing.TypeVar("T")
 
 
 def get_capabilities():
@@ -215,6 +220,10 @@ class Specification(ControlSurfaceSpecification):
     create_mappings_function = create_mappings
 
 
+Predicate: TypeAlias = typing.Callable[[T], bool]
+MidiBytes: TypeAlias = typing.Tuple[int, ...]
+
+
 class modeStep(ControlSurface):
     def __init__(self, specification=Specification, *a, c_instance=None, **k):
         # A new control surface gets constructed when the song is changed, so we can
@@ -249,6 +258,10 @@ class modeStep(ControlSurface):
 
         # Internal tracker during connect/reconnect events.
         self._mode_after_identified = self._configuration.initial_mode
+
+        self.__suppressing_send_midi_predicate: typing.Optional[
+            Predicate[MidiBytes]
+        ] = None
 
         # For hacking around the weird LED behavior when updating the backlight.
         self.__is_suppressing_hardware: bool = False
@@ -309,6 +322,35 @@ class modeStep(ControlSurface):
     @property
     def main_modes(self):
         return self.component_map["Main_Modes"]
+
+    # Prevent outgoing MIDI messages from being sent.
+    @contextmanager
+    def suppressing_send_midi(
+        self,
+        # If given, only suppress messages for which this returns True (i.e. only
+        # messages for which this returns False will be sent).
+        predicate: typing.Optional[Predicate[MidiBytes]] = None,
+    ):
+        last_predicate = self.__suppressing_send_midi_predicate
+        try:
+            self.__suppressing_send_midi_predicate = (
+                (lambda _: True) if predicate is None else predicate
+            )
+
+            yield
+        finally:
+            self.__suppressing_send_midi_predicate = last_predicate
+
+    def _do_send_midi(self, midi_event_bytes: MidiBytes):
+        if (
+            self.__suppressing_send_midi_predicate is None
+            or not self.__suppressing_send_midi_predicate(midi_event_bytes)
+        ):
+            # logger.info(f"send MIDI: {midi_event_bytes}")
+            return super()._do_send_midi(midi_event_bytes)
+
+        # logger.info(f"suppressed MIDI message: {midi_event_bytes}")
+        return False
 
     def _create_identification(self, specification):
         identification = super()._create_identification(specification)

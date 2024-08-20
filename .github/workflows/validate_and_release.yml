@@ -17,7 +17,7 @@ jobs:
           version: 1.0
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.11
           cache: pip
       - run: python -m pip install poetry
       - run: make install
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.11
           cache: pip
 
       - run: python -m pip install poetry
@@ -95,7 +95,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.11
       - name: Semantic Release
         uses: python-semantic-release/python-semantic-release@v9.8.6
         with:

@@ -10,9 +10,10 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-# Newer python version for development tasks. Note this is different from Live's built-in
-# version (3.7), since some development packages have dropped support for 3.7.
-python = "^3.8"
+# Newer python version for development tasks. Note this is different from Live's
+# built-in version (3.7), since many packages have dropped support for 3.7, and newer
+# python versions have more conveniences for tests etc.
+python = "^3.11"
 
 # Packages available at runtime in Live's "site-packages" folder.
 future = "0.18.2"

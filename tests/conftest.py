@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import importlib.machinery
 import importlib.util
 import os
@@ -19,9 +20,11 @@ from typing import (
     Generator,
     List,
     Optional,
+    Protocol,
     Tuple,
     TypeVar,
     Union,
+    overload,
 )
 
 import mido
@@ -91,6 +94,8 @@ CLEAR_CC = 0
 DISPLAY_BASE_CC = 50
 DISPLAY_WIDTH = 4
 
+MIDI_CHANNEL = 0
+
 # The number of separate messages, which we'll track individually, which need to be sent
 # to switch modes.
 NUM_STANDALONE_TOGGLE_MESSAGES = len(sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS)
@@ -117,6 +122,52 @@ def pytest_bdd_after_step(step: Step, feature: Feature, step_func_args: Dict[str
         device_state: Optional[DeviceState] = step_func_args.get("device_state")
         if device_state is not None:
             device_state.print()
+
+
+class MessageListener(Protocol):
+    # The message or the exception can be present, but not both.
+    @overload
+    def __call__(self, msg: mido.Message, exc: None) -> Any:
+        ...
+
+    @overload
+    def __call__(self, msg: None, exc: Exception) -> Any:
+        ...
+
+    def __call__(self, msg: Optional[mido.Message], exc: Optional[Exception]) -> Any:
+        ...
+
+
+def guard_message_exceptions(
+    fn: Callable[["DeviceState"], Awaitable[T]],
+):
+    @functools.wraps(fn)
+    async def wrapper(*a, **k):
+        device_state = a[0]
+        assert isinstance(device_state, DeviceState)
+
+        async def raise_exception():
+            await device_state.exception_event.wait()
+
+            exc = device_state.exception
+            assert exc is not None
+            raise exc
+
+        # The type checker thinks we're on an earlier python version, so it doesn't know
+        # that TaskGroup exists.
+        async with asyncio.TaskGroup() as task_group:  # type: ignore
+            # If this throws an exception, it will be raised and the whole group will be
+            # destroyed.
+            exception_task = task_group.create_task(raise_exception())
+
+            # If this finishes before an exception is raised, we can cancel the
+            # exception task to tear down the group.
+            result = await task_group.create_task(fn(*a, **k))
+            exception_task.cancel()
+
+            return result
+
+    return wrapper
 
 
 # Emulation of the SoftStep LED/Display state based on incoming MIDI messages.
@@ -150,6 +201,13 @@ class DeviceState:
         # Backlight on/off, or unset (None).
         self._backlight: Optional[bool] = None
 
+        # Most recent standalone mode program.
+        self._standalone_program: Optional[int] = None
+
+        # Trackers for exceptions thrown while receiving messages.
+        self._exception_event = asyncio.Event()
+        self._exception: Optional[Exception] = None
+
         self._identity_request_event = asyncio.Event()
         self._ping_event = asyncio.Event()
 
@@ -160,7 +218,15 @@ class DeviceState:
             self._update_times[category] = 0.0
 
         # Additional message handlers.
-        self._message_listeners: List[Optional[Callable[[mido.Message], Any]]] = []
+        self._message_listeners: List[Optional[MessageListener]] = []
+
+    @property
+    def exception_event(self):
+        return self._exception_event
+
+    @property
+    def exception(self):
+        return self._exception
 
     @property
     def red_values(self):
@@ -180,15 +246,17 @@ class DeviceState:
     def standalone_toggles(self) -> Collection[Optional[bool]]:
         return self._standalone_toggles
 
+    # The most recent program sent while the controller was in standalone mode.
+    @property
+    def standalone_program(self) -> Optional[int]:
+        return self._standalone_program
+
     @property
     def backlight(self) -> Optional[bool]:
         return self._backlight
 
     # Returns a remove function.
-    def add_message_listener(
-        self,
-        listener: Callable[[mido.Message], Any],
-    ) -> Callable[[], None]:
+    def add_message_listener(self, listener: MessageListener) -> Callable[[], None]:
         index = len(self._message_listeners)
         self._message_listeners.append(listener)
 
@@ -198,84 +266,183 @@ class DeviceState:
         return remove
 
     def receive_message(self, msg: mido.Message):
-        if msg.is_cc() and msg.dict()["channel"] == 0:
-            _, cc, value = msg.bytes()
+        """Receive, validate, and process a MIDI message.
 
-            # Commit the LED color from the deprecated API. This isn't an exact replica
-            # of the real hardware behavior, which has more edge cases and bugs, but
-            # we're only using this feature in a controlled way to render solid yellow.
-            if cc == CLEAR_CC:
-                if all([value is not None for value in self._deprecated_led_values]):
-                    location, color, state = self._deprecated_led_values
-                    if color != 2:  # yellow
-                        raise RuntimeError("only expected yellow")
-                    for values in (self._red_values, self._green_values):
-                        assert location is not None
-                        assert state is not None
-                        values[location] = state
-                self._deprecated_led_values = [None] * len(self._deprecated_led_values)
+        This method imposes strict validation rules, and throws errors in some cases
+        that wouldn't cause any hardware issues (e.g. stray program change messages),
+        but which indicate something unexpected happening with the control surface.
 
-            # Detect values that update internal arrays.
-            for base_cc, values, category in (
-                (
-                    DEPRECATED_LED_BASE_CC,
-                    self._deprecated_led_values,
-                    DeviceState.UpdateCategory.lights,
-                ),
-                (RED_LED_BASE_CC, self._red_values, DeviceState.UpdateCategory.lights),
-                (
-                    GREEN_LED_BASE_CC,
-                    self._green_values,
-                    DeviceState.UpdateCategory.lights,
-                ),
-                (
-                    DISPLAY_BASE_CC,
-                    self._display_values,
-                    DeviceState.UpdateCategory.display,
-                ),
-            ):
-                if base_cc <= cc < base_cc + len(values):
-                    values[cc - base_cc] = value
-                    self._update_times[category] = time.time()
+        After init, this is the only entrypoint for modifying the device state.
 
-        # Identity request, see http://midi.teragonaudio.com/tech/midispec/identity.htm.
-        elif matches_sysex(msg, (0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7)):
-            # Greeting request flag gets set forever once the message has been
-            # received.
-            if not self._identity_request_event.is_set():
-                self._identity_request_event.set()
-        elif matches_sysex(msg, sysex.SYSEX_PING_RESPONSE):
-            # Ping response flag gets cleared immediately after notifying any
-            # current listeners.
-            self._ping_event.set()
-            self._ping_event.clear()
-        elif matches_sysex(msg, sysex.SYSEX_BACKLIGHT_OFF_REQUEST):
-            self._backlight = False
-        elif matches_sysex(msg, sysex.SYSEX_BACKLIGHT_ON_REQUEST):
-            self._backlight = True
-        else:
-            # Set standalone toggle flags if appropriate.
-            for requests, standalone in (
-                (sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS, True),
-                (sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS, False),
-            ):
-                for idx, request in enumerate(requests):
-                    if matches_sysex(msg, request):
-                        self._standalone_toggles[idx] = standalone
+        """
+        try:
+            msg_type, msg_channel = [
+                msg.dict().get(field, None) for field in ("type", "channel")
+            ]
+
+            # Check whether the message type is generally allowed, based on the current
+            # state of the device.
+            if len(set(self.standalone_toggles)) == 1:
+                # All toggles are the same, we're not in the middle of a transition.
+                standalone_status = list(self.standalone_toggles)[0]
+
+                if msg.is_cc():
+                    assert (
+                        standalone_status is False
+                    ), f"CC messages are only expected in hosted mode: {msg}"
+                elif msg_type == "program_change":
+                    assert (
+                        standalone_status is True
+                    ), f"Program Change messages are only expected in standalone mode: {msg}"
+                elif msg_type == "sysex":
+                    # These are allowed.
+                    pass
+                else:
+                    raise RuntimeError(f"Unexpected message type: {msg}")
+
+            else:
+                # If the standalone toggles aren't all the same, i.e. if we're in the
+                # process of transitioning between standalone and hosted mode, only allow
+                # additional standalone toggle messages.
+                assert (
+                    msg_type == "sysex"
+                ), f"Non-sysex messages not allowed while switching between standalone and hosted mode: {msg}"
+                assert any(
+                    matches_sysex(msg, t)
+                    for t in sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS
+                    + sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS
+                ), f"Invalid sysex message while switching between standalone and hosted mode: {msg}"
+
+            if msg.is_cc():
+                assert (
+                    msg_channel == MIDI_CHANNEL
+                ), f"Got CC on unexpected channel: {msg}"
+
+                _, cc, value = msg.bytes()
+                is_cc_recognized = False
+
+                # Commit the LED color from the deprecated API. This isn't an exact replica
+                # of the real hardware behavior, which has more edge cases and bugs, but
+                # we're only using this feature in a controlled way to render solid yellow.
+                if cc == CLEAR_CC:
+                    is_cc_recognized = True
+                    if all(
+                        [value is not None for value in self._deprecated_led_values]
+                    ):
+                        location, color, state = self._deprecated_led_values
+                        if color != 2:  # yellow
+                            raise RuntimeError("only expected yellow")
+                        for values in (self._red_values, self._green_values):
+                            assert location is not None
+                            assert state is not None
+                            values[location] = state
+                    self._deprecated_led_values = [None] * len(
+                        self._deprecated_led_values
+                    )
+
+                # Detect values that update internal arrays.
+                for base_cc, values, category in (
+                    (
+                        DEPRECATED_LED_BASE_CC,
+                        self._deprecated_led_values,
+                        DeviceState.UpdateCategory.lights,
+                    ),
+                    (
+                        RED_LED_BASE_CC,
+                        self._red_values,
+                        DeviceState.UpdateCategory.lights,
+                    ),
+                    (
+                        GREEN_LED_BASE_CC,
+                        self._green_values,
+                        DeviceState.UpdateCategory.lights,
+                    ),
+                    (
+                        DISPLAY_BASE_CC,
+                        self._display_values,
+                        DeviceState.UpdateCategory.display,
+                    ),
+                ):
+                    if base_cc <= cc < base_cc + len(values):
+                        is_cc_recognized = True
+                        values[cc - base_cc] = value
+                        self._update_times[category] = time.time()
+
+                assert is_cc_recognized, f"Got unrecognized CC message: {msg}"
+
+            elif msg_type == "program_change":
+                assert (
+                    msg_channel == MIDI_CHANNEL
+                ), f"Got Program Change on unexpected channel: {msg}"
+
+                # We already verified that we're in standalone mode above, but sanity
+                # check to be sure.
+                assert all(t is True for t in self.standalone_toggles)
+
+                program = msg.dict()["program"]
+                assert isinstance(program, int)
+                self._standalone_program = program
+
+            # Identity request, see http://midi.teragonaudio.com/tech/midispec/identity.htm.
+            elif matches_sysex(msg, (0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7)):
+                # Greeting request flag gets set forever once the message has been
+                # received.
+                if not self._identity_request_event.is_set():
+                    self._identity_request_event.set()
+            elif matches_sysex(msg, sysex.SYSEX_PING_RESPONSE):
+                # Ping response flag gets cleared immediately after notifying any
+                # current listeners.
+                self._ping_event.set()
+                self._ping_event.clear()
+            elif matches_sysex(msg, sysex.SYSEX_BACKLIGHT_OFF_REQUEST):
+                self._backlight = False
+            elif matches_sysex(msg, sysex.SYSEX_BACKLIGHT_ON_REQUEST):
+                self._backlight = True
+            elif msg_type == "sysex":
+                is_standalone_sysex = False
+                # Set standalone toggle flags if appropriate.
+                for requests, standalone in (
+                    (sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS, True),
+                    (sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS, False),
+                ):
+                    for idx, request in enumerate(requests):
+                        if matches_sysex(msg, request):
+                            is_standalone_sysex = True
+                            self._standalone_toggles[idx] = standalone
+
+                assert is_standalone_sysex, f"Sysex message not recognized: {msg}"
+            else:
+                raise RuntimeError(f"Unrecognized message: {msg}")
+        except Exception as exc:
+            # Save exception locally and notify anyone who cares...
+            self._exception = exc
+            self._exception_event.set()
+
+            # ...send exception to listeners...
+            for message_listener in self._message_listeners:
+                if message_listener:
+                    message_listener(None, exc)
+
+            # ...then propagate it up the chain. This should also halt the listener
+            # task.
+            raise exc
 
         for message_listener in self._message_listeners:
             if message_listener:
-                message_listener(msg)
+                message_listener(msg, None)
 
+    @guard_message_exceptions
     async def wait_for_identity_request(self):
         await self._identity_request_event.wait()
 
+    @guard_message_exceptions
     async def wait_for_ping_response(self):
         await self._ping_event.wait()
 
     # Wait until no updates to the given state type(s) have been received for the given
     # duration. Timing is imprecise (but should never give false positives), as this
     # uses polling rather than proper async notifications.
+    @guard_message_exceptions
     async def wait_until_stable(
         self,
         categories: Optional[Collection[DeviceState.UpdateCategory]] = None,
@@ -378,20 +545,24 @@ def matches_sysex(
     return all(x == y for x, y in zip(data, sysex_bytes[1:-1]))
 
 
-def _cleanup_runnable(runnable: asyncio.Future):
-    try:
-        exception = runnable.exception()
-        if exception is not None:
-            raise exception
-    except asyncio.InvalidStateError:
-        # Task is unfinished, this is allowed.
-        pass
+def _cleanup_runnable(runnable: asyncio.Future, loop: asyncio.AbstractEventLoop):
     runnable.cancel()
+
+    # Ensure the task has actually been cancelled to avoid errors on exit, see
+    # https://stackoverflow.com/questions/77974525/what-is-the-right-way-to-await-cancelling-an-asyncio-task.
+    try:
+        loop.run_until_complete(asyncio.gather(runnable))
+    except asyncio.CancelledError:
+        # We expect the task to be cancelled. Any other errors should be bubbled up.
+        pass
 
 
 @fixture
 def loop():
-    loop = asyncio.get_event_loop()
+    # Create a top-level event loop to avoid deprecation warnings like
+    # https://stackoverflow.com/questions/73361664/asyncio-get-event-loop-deprecationwarning-there-is-no-current-event-loop.
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     loop.set_debug(True)
     return loop
 
@@ -465,7 +636,7 @@ def message_queue(
     yield message_queue
 
     for runnable in (poll_messages_task, receive_all_messages_executor):
-        _cleanup_runnable(runnable)
+        _cleanup_runnable(runnable, loop)
 
 
 # After setting up the MIDI message queue, create a device state emulator and start
@@ -485,7 +656,7 @@ def device_state(
     receive_messages_task = loop.create_task(receive_messages())
     yield device_state
 
-    _cleanup_runnable(receive_messages_task)
+    _cleanup_runnable(receive_messages_task, loop)
 
 
 # Wait to receive an identity request from Live, then send a response back.
@@ -538,31 +709,44 @@ async def given_control_surface_is_initialized(
     loop: asyncio.AbstractEventLoop,
     ioport: mido.ports.BaseOutput,
 ):
-    assert device_identified
+    # Inner function so we can get the message exceptions guard.
+    #
+    # TODO: This whole setup can probably be reworked with pytest-asyncio.
+    @guard_message_exceptions
+    async def run(device_state: DeviceState):
+        # This was added in python 3.11. The type-checker is set to an earlier version for
+        # the main application, but the tests themselves run with a version where this is
+        # available.
+        async with asyncio.timeout(15):  # type: ignore
+            assert device_identified
 
-    # Wait until something gets rendered to the display.
-    while not device_state.display_text.strip():
-        await asyncio.sleep(POLL_INTERVAL)
+            # Wait until something gets rendered to the display.
+            while not device_state.display_text.strip():
+                await asyncio.sleep(POLL_INTERVAL)
 
-    # Wait until the control surface starts reponding to inputs (this can take a second
-    # or so if Live was just started).
-    received_pong = False
+            # Wait until the control surface starts responding to inputs (this can take a second
+            # or so if Live was just started).
+            received_pong = False
 
-    async def send_pings():
-        while not received_pong:
-            ioport.send(mido.Message("sysex", data=sysex.SYSEX_PING_REQUEST[1:-1]))
-            await asyncio.sleep(0.3)
+            async def send_pings():
+                while not received_pong:
+                    ioport.send(
+                        mido.Message("sysex", data=sysex.SYSEX_PING_REQUEST[1:-1])
+                    )
+                    await asyncio.sleep(0.3)
 
-    send_pings_task = loop.create_task(send_pings())
-    await device_state.wait_for_ping_response()
-    received_pong = True
+            send_pings_task = loop.create_task(send_pings())
+            await device_state.wait_for_ping_response()
+            received_pong = True
 
-    # Throw any exceptions.
-    await send_pings_task
+            # Throw any exceptions.
+            await send_pings_task
 
-    # Another brief delay to make sure the control surface is responsive (there are intermittent
-    # issues if we don't add this delay).
-    await asyncio.sleep(0.2)
+            # Another brief delay to make sure the control surface is responsive (there are intermittent
+            # issues if we don't add this delay).
+            await asyncio.sleep(1.0)
+
+    await run(device_state)
 
 
 def _get_index_for_key(key_number: int):

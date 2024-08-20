@@ -332,7 +332,10 @@ def create_root_view() -> view.View[Optional[Content]]:
             # the main mode text after the edit window has been closed.
             timestamp = component_state.edit_window_updated_at - 0.01
 
-        elif main_mode_category is MainModeCategory.standalone:
+        elif main_mode_category in (
+            MainModeCategory.standalone,
+            MainModeCategory.hidden,
+        ):
             # Make sure the text stays as `None` to avoid any rendering.
             pass
 
