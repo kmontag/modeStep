@@ -25,8 +25,13 @@ modeStep and your own SoftStep standalone presets.
 - Choose `modeStep` as one of your control surfaces, and select the
   main SoftStep port (generally `SoftStep (Control Surface)` or
   `SoftStep`) for the Input and Output.
-- Ensure the `Remote` checkbox for the selected MIDI port is enabled
-  under the `Input Ports` and `Output Ports` sections.
+- In the section with Track/Sync/Remote/MPE checkboxes:
+  - **for most users:** ensure that all checkboxes are disabled
+    for the modeStep input/output ports.
+  - **if you're using any [standalone presets](#standalone-presets):**
+    ensure that the Remote checkbox is enabled for the modeStep input port,
+    and that all other checkboxes are disabled for the modeStep input/output
+    ports.
 
 ### SoftStep 2
 
@@ -271,8 +276,11 @@ CCs in your MIDI mappings:
 - avoid `CCs 40-86 (channel 1)`, since the SoftStep uses these
   controls to send sensor data while in hosted mode.
 - avoid `CCs 20-29, 40-42, 50-53, and 110-119 (any channel)`, since
-  mapping these will cause Live to send feedback that interferes with
+  mapping these might cause Live to send feedback that interferes with
   the SoftStep's LEDs and display.
+
+When using standalone presets, make sure that the `Remote` checkbox 
+is enabled for the modeStep MIDI input in Live's settings.
 
 _Note: if you're having issues with LED states being overwritten when
 switching in and out of standalone mode, make sure to set a
