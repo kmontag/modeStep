@@ -134,9 +134,11 @@ in the moment.
 
 ## Advanced Usage
 
+_(click section headers to expand)_
+
 <details>
 
-<summary><a name='python-configuration'/><h3>Configuration</h3></summary>
+<summary><a name='python-configuration'/><h3>[+] Configuration</h3></summary>
 
 You can customize modeStep by creating a file called `user.py` in this
 directory.
@@ -190,7 +192,7 @@ otherwise interacting with the clip doesn't do anything special.
 </details>
 
 <details>
-<summary><a name='editing-track-controls' /><h3>Live-Editing Track Controls</h3></summary>
+<summary><a name='editing-track-controls' /><h3>[+] Live-Editing Track Controls</h3></summary>
 
 You can modify track controls for the current session directly from
 the SoftStep (for persistent changes, use the 
@@ -239,7 +241,7 @@ the mode select screen.
 </details>
 
 <details>
-<summary><a name='standalone-presets'/><h3>Standalone Presets</h3></summary>
+<summary><a name='standalone-presets'/><h3>[+] Standalone Presets</h3></summary>
 
 modeStep can put the SoftStep into standalone mode and load any
 presets in your setlist.
