@@ -1,0 +1,3 @@
+[submodule "__ext__/AbletonLive12_MIDIRemoteScripts"]
+	path = __ext__/AbletonLive12_MIDIRemoteScripts
+	url = https://github.com/gluon/AbletonLive12_MIDIRemoteScripts.git
