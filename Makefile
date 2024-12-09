@@ -14,9 +14,6 @@ default: lint check
 .PHONY: install
 install: .make.install
 
-.PHONY: decompile
-decompile: __ext__/System_MIDIRemoteScripts/.make.decompile
-
 .PHONY: lint
 lint: .make.install
 	$(POETRY) run ruff format --check .
@@ -28,7 +25,7 @@ format: .make.install
 	$(POETRY) run ruff check --fix .
 
 .PHONY: check
-check: .make.install __ext__/System_MIDIRemoteScripts/.make.decompile
+check: .make.install
 	$(POETRY) run pyright .
 
 .PHONY: test
@@ -41,31 +38,13 @@ img: .make.install
 
 .PHONY: clean
 clean:
-	rm -rf __ext__/System_MIDIRemoteScripts/
 # The .venv folder gets created by poetry (because virtualenvs.in-project is enabled).
 	rm -rf .venv/
-	rm -f .make.install
+	rm -f .make.*
 
 # Set files with different configurations for testing.
 $(TEST_PROJECT_DIR)/%.als: .make.install $(TEST_PROJECT_DIR)/create_set.py
 	$(POETRY) run python $(TEST_PROJECT_DIR)/create_set.py $*
-
-__ext__/System_MIDIRemoteScripts/.make.decompile: $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR) | .make.install
-# Sanity check before rm'ing.
-	@if [ -z "$(@D)" ]; then \
-		echo "Sanity check failed: compile dir is not set"; \
-		exit 1; \
-	fi
-	rm -rf $(@D)/
-	mkdir -p $(@D)/ableton/
-	@if [ -z $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR) ]; then \
-		echo "System remote scripts directory not found" ; \
-		exit 1; \
-	fi
-	@if [ ! -d $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR) ]; then \
-		echo "The specified remote scripts directory ("$(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR)") does not exist"; \
-		exit 1; \
-	fi
 
 # decompyle3 works for most files, and the ones where it doesn't don't
 # matter for our purposes.

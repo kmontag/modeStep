@@ -6,9 +6,6 @@ __pycache__/
 # Virtual environment.
 /.venv/
 
-# Decompiled system scripts.
-/__ext__/System_MIDIRemoteScripts/
-
 # Markers for Makefile tasks which would otherwise have no artifacts.
 /.make.*
 

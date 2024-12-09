@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "modeStep"
 version = "0.0.1"
-description = "Ableton Live 11+ control surface for the SoftStep 2"
+description = "Ableton Live 12 control surface for the SoftStep 2"
 authors = ["Kevin Montag <kmontag@cs.stanford.edu>"]
 readme = "README.md"
 
@@ -53,7 +53,7 @@ typing-extensions = "^4.7.0"
 pythonVersion = "3.7"
 
 exclude = ["**/__pycache__", ".git", ".venv", "__ext__/"]
-extraPaths = ["./__ext__/System_MIDIRemoteScripts"]
+extraPaths = ["./__ext__/AbletonLive12_MIDIRemoteScripts"]
 
 # Suppress warnings about the Live module not existing.
 reportMissingModuleSource = false
