@@ -1,0 +1,3 @@
+[submodule "__ext__/pycdc"]
+	path = __ext__/pycdc
+	url = https://github.com/zrax/pycdc.git
