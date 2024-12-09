@@ -3,6 +3,9 @@
 modeStep uses [poetry](https://python-poetry.org/) for project management and
 development tasks. The project's `Makefile` also contains targets for common tasks.
 
+Note: the `Makefile` currently assumes that Live 12 is installed at its default MacOS
+install location. PRs welcome for better Windows support.
+
 ## Testing
 
 Tests work by opening Live, impersonating the MIDI output of the SoftStep, and checking
