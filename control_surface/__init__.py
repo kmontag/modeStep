@@ -5,7 +5,7 @@ import typing
 from contextlib import contextmanager
 from functools import partial
 
-from ableton.v3.base import const, depends, inject, listens, task
+from ableton.v3.base import const, depends, inject, task
 from ableton.v3.control_surface import (
     ControlSurface,
     ControlSurfaceSpecification,
@@ -30,7 +30,7 @@ from .device import DeviceComponent
 from .display import display_specification
 from .elements import NUM_GRID_COLS, NUM_ROWS, Elements
 from .hardware import HardwareComponent
-from .live import lazy_attribute
+from .live import lazy_attribute, listens
 from .mappings import (
     DISABLED_MODE_NAME,
     STANDALONE_INIT_MODE_NAME,

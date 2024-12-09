@@ -6,11 +6,11 @@ from typing import Callable, Optional, Union
 
 from ableton.v2.base import linear
 from ableton.v2.control_surface.defaults import TIMER_DELAY
-from ableton.v3.base import clamp, listens, nop, task
+from ableton.v3.base import clamp, nop, task
 from ableton.v3.control_surface import InputControlElement
 from ableton.v3.control_surface.display import Renderable
 
-from ..live import lazy_attribute
+from ..live import lazy_attribute, listens
 from ..xy import get_xy_value
 from .light import LightedTransitionalProcessedValueElement
 

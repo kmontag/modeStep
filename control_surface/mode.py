@@ -7,7 +7,7 @@ from enum import Enum
 from functools import partial
 from time import time
 
-from ableton.v3.base import depends, listenable_property, memoize
+from ableton.v3.base import depends, listenable_property
 from ableton.v3.control_surface.controls import ButtonControl
 from ableton.v3.control_surface.mode import (
     CallFunctionMode,
@@ -17,6 +17,7 @@ from ableton.v3.control_surface.mode import (
 from ableton.v3.control_surface.mode import ModesComponent as ModesComponentBase
 
 from .hardware import HardwareComponent
+from .live import memoize
 from .types import MainMode
 
 if typing.TYPE_CHECKING:
