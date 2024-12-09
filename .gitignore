@@ -9,6 +9,9 @@ __pycache__/
 # Decompiled system scripts.
 /__ext__/System_MIDIRemoteScripts/
 
+# Link to compiled system scripts directory.
+/__ext__/System_MIDIRemoteScripts_compiled
+
 # Markers for Makefile tasks which would otherwise have no artifacts.
 /.make.*
 

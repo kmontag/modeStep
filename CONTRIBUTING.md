@@ -47,6 +47,10 @@ make lint # Validates code style.
 make check # Validates types.
 ```
 
+To perform the type checks, Live's control surface libraries will be decompiled. A local
+Live 12 installation (any edition) is required. `cmake` and a C++ compilation stack are
+also required to build the decompiler.
+
 Some lint errors can be fixed automatically with:
 
 ```shell

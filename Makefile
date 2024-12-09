@@ -1,8 +1,18 @@
 POETRY := $(shell command -v poetry 2> /dev/null)
 
-# Recognize "Ableton Live 12 Suite", "Ableton Live 12 Lite", etc. Escape whitespace int
-# he result so that we can use this as a target.
+# Recognize "Ableton Live 12 Suite", "Ableton Live 12 Lite", etc. Escape whitespace in
+# the result so that this is (somewhat) usable elsewhere in the Makefile.
+#
+# TODO: Windows support.
 SYSTEM_MIDI_REMOTE_SCRIPTS_DIR := $(shell ls -d /Applications/Ableton\ Live\ 12\ *.app/Contents/App-Resources/MIDI\ Remote\ Scripts 2> /dev/null | head -n 1 | sed 's/ /\\ /g')
+
+# Targets for decompilation of Live's python libraries (one python file per .pyc file in
+# the system Live installation).
+#
+# Note we expect there to be no whitespace in file/directory names beneath the
+# SYSTEM_MIDI_REMOTE_SCRIPTS_DIR.
+ABLETON_COMPILED_SOURCES := $(shell find $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR)/ableton -type f -name '*.pyc' | sed 's|^$(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR)|__ext__/System_MIDIRemoteScripts_compiled|g')
+ABLETON_SOURCES := $(patsubst %.pyc,%.py,$(subst System_MIDIRemoteScripts_compiled,System_MIDIRemoteScripts,$(ABLETON_COMPILED_SOURCES)))
 
 TEST_PROJECT_SET_NAMES := backlight default overrides standalone wide_clip_launch
 TEST_PROJECT_DIR := tests/modeStep_tests_project
@@ -15,7 +25,7 @@ default: lint check
 install: .make.install
 
 .PHONY: decompile
-decompile: __ext__/System_MIDIRemoteScripts/.make.decompile
+decompile: $(ABLETON_SOURCES)
 
 .PHONY: lint
 lint: .make.install
@@ -28,7 +38,7 @@ format: .make.install
 	$(POETRY) run ruff check --fix .
 
 .PHONY: check
-check: .make.install __ext__/System_MIDIRemoteScripts/.make.decompile
+check: .make.install $(ABLETON_SOURCES)
 	$(POETRY) run pyright .
 
 .PHONY: test
@@ -42,6 +52,7 @@ img: .make.install
 .PHONY: clean
 clean:
 	rm -rf __ext__/System_MIDIRemoteScripts/
+	rm -f __ext__/System_MIDIRemoteScripts_compiled
 # The .venv folder gets created by poetry (because virtualenvs.in-project is enabled).
 	rm -rf .venv/
 	rm -f .make.install
@@ -50,28 +61,30 @@ clean:
 $(TEST_PROJECT_DIR)/%.als: .make.install $(TEST_PROJECT_DIR)/create_set.py
 	$(POETRY) run python $(TEST_PROJECT_DIR)/create_set.py $*
 
-__ext__/System_MIDIRemoteScripts/.make.decompile: $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR) | .make.install
-# Sanity check before rm'ing.
-	@if [ -z "$(@D)" ]; then \
-		echo "Sanity check failed: compile dir is not set"; \
-		exit 1; \
-	fi
-	rm -rf $(@D)/
-	mkdir -p $(@D)/ableton/
-	@if [ -z $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR) ]; then \
-		echo "System remote scripts directory not found" ; \
-		exit 1; \
-	fi
-	@if [ ! -d $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR) ]; then \
-		echo "The specified remote scripts directory ("$(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR)") does not exist"; \
-		exit 1; \
-	fi
-
-# decompyle3 works for most files, and the ones where it doesn't don't
-# matter for our purposes.
-	$(POETRY) run decompyle3 -r -o $(@D)/ableton/ $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR)/ableton/
-
+# Force a clean re-pull of the pycdc repository whenever its version changes. This is a
+# bit heavy-handed but it ensures that we clean any lingering build artifacts.
+__ext__/pycdc/README.md: .gitmodules
+	rm -rf $(@D)
+	git submodule update --init -- $(@D)
 	touch $@
+
+__ext__/pycdc/pycdc: __ext__/pycdc/README.md
+	cd $(@D) && cmake . && make
+
+# To avoid issues with spaces in the system remote scripts directory, "build" local pyc
+# files by creating a local symlink to the system directory.
+#
+# The dependency on $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR) is a bit imprecise, but should
+# generally ensure that the link gets recreated if the location of the system remote
+# scripts directory changes, e.g. if the installed Live edition changes.
+__ext__/System_MIDIRemoteScripts_compiled: $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR)
+	ln -f -s $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR) __ext__/System_MIDIRemoteScripts_compiled
+
+$(ABLETON_COMPILED_SOURCES): __ext__/System_MIDIRemoteScripts_compiled
+
+__ext__/System_MIDIRemoteScripts/%.py: __ext__/System_MIDIRemoteScripts_compiled/%.pyc __ext__/pycdc/pycdc
+	mkdir -p "$(@D)"
+	set -o pipefail && __ext__/pycdc/pycdc $< | sed 's|^Unsupported|# Unsupported|g' | sed 's|^Warning|# Warning|g' > $@
 
 .make.install: pyproject.toml poetry.lock
 	@if [ -z $(POETRY) ]; then echo "Poetry could not be found. See https://python-poetry.org/docs/"; exit 2; fi
