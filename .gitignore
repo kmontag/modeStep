@@ -12,6 +12,10 @@ __pycache__/
 # Markers for Makefile tasks which would otherwise have no artifacts.
 /.make.*
 
+# Terraform local data and transient state.
+/terraform/.terraform
+/terraform/terraform.tfstate
+
 # Generated set files and project metadata.
 /tests/modeStep_tests_project/Ableton Project Info/
 /tests/modeStep_tests_project/Backup/
