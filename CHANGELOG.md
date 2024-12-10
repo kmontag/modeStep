@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## v0.0.2 (2024-12-10)
+
+### Chore
+
+* chore: move semantic config to canonical location ([`e4b787d`](https://github.com/kmontag/modeStep/commit/e4b787d0bf1a463e6ada843a2a950c17e45d8304))
+
+* chore: add terraform configuration for modeStep repo ([`870c7ad`](https://github.com/kmontag/modeStep/commit/870c7ad2962e024555228e678a38c37de08e39ae))
+
+* chore: add configuration for semantic PR checks ([`b1df97e`](https://github.com/kmontag/modeStep/commit/b1df97e703d44289819c52a77fa8c2f4a4a23022))
+
+### Documentation
+
+* docs: prettify README ([`b7b3fd2`](https://github.com/kmontag/modeStep/commit/b7b3fd25773eb61011da53aec69e02d97c9594ca))
+
+* docs: remove Live 11 support guarantee
+
+Tests haven&#39;t been run against Live 11 in awhile. ([`d72956b`](https://github.com/kmontag/modeStep/commit/d72956baab4e70740ec507a35078c8399b468c21))
+
+### Fix
+
+* fix: broken type checks as of Live 12.1 (#7)
+
+Live 12.1 switched to python 3.11, which is currently impractical to
+decompile. See
+https://github.com/gluon/AbletonLive12_MIDIRemoteScripts/issues/2 for
+more discussion.
+
+`pycdc` does decompile some basic structural elements of the Live
+libraries, but outputs mostly empty function and class definitions.
+https://pylingual.io/ seems to work better but isn&#39;t currently possible
+to integrate in an automated way.
+
+This PR adds https://github.com/gluon/AbletonLive12_MIDIRemoteScripts
+(currently not updated for 12.1 but seems to work fine for our use
+cases) as a submodule and sets it up for use with the typechecker. ([`26b748c`](https://github.com/kmontag/modeStep/commit/26b748cc4e72d7fc1aa6c7291cd4c44cc0c5532a))
+
+### Unknown
+
+* Update README.md ([`bd4e310`](https://github.com/kmontag/modeStep/commit/bd4e31099fe1acaafaf2044ed2f4023215bd7ef7))
+
+* Update README.md ([`d9e4638`](https://github.com/kmontag/modeStep/commit/d9e4638bc9b08b3bfd9f48ddb39179a1747171e3))
+
 ## v0.0.1 (2024-08-19)
 
 ### Chore

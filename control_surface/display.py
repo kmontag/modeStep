@@ -5,7 +5,9 @@ from time import time
 from typing import Any, Dict, Optional, Union
 
 from ableton.v3.control_surface.display import (
-    DefaultNotifications,
+    DefaultNotifications as __DefaultNotifications,
+)
+from ableton.v3.control_surface.display import (
     DisplaySpecification,
     Event,
     State,
@@ -104,6 +106,12 @@ def _scene_notification(name: str, idx: Optional[int] = None, prefix: str = ""):
 
 def _slider_value_notification(value: str):
     return NotificationData(text=_right_align("", value), flash_on_repeat=False)
+
+
+# The type-checker gets confused by the notifications inheritance structure, and thinks
+# inner classes like `DefaultNotifications.Clip` are undefined. Just force it to ignore
+# such checks by assigning to an `Any`.
+DefaultNotifications: Any = __DefaultNotifications
 
 
 class Notifications(DefaultNotifications):

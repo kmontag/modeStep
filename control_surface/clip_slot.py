@@ -1,12 +1,13 @@
 from logging import getLogger
 from typing import Optional
 
-from ableton.v3.base import depends, listens
+from ableton.v3.base import depends
 from ableton.v3.control_surface.components import (
     ClipSlotComponent as ClipSlotComponentBase,
 )
 
 from .configuration import Configuration
+from .live import listens
 from .types import ClipSlotAction
 
 logger = getLogger(__name__)

@@ -5,12 +5,12 @@ from typing import Any, Callable, Dict, Optional
 
 from ableton.v2.control_surface import MIDI_INVALID_TYPE
 from ableton.v2.control_surface.elements import ButtonElementMixin
-from ableton.v3.base import EventObject, listens, memoize, task
+from ableton.v3.base import EventObject, task
 from ableton.v3.control_surface.elements import ButtonElement, Color
 from ableton.v3.control_surface.midi import CC_STATUS
 
 from ..colors import OFF, ColorInterfaceMixin, Skin
-from ..live import lazy_attribute
+from ..live import lazy_attribute, listens, memoize
 from .compound import TransitionalProcessedValueElement
 
 logger = getLogger(__name__)

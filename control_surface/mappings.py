@@ -15,7 +15,7 @@ from typing import (
 )
 
 from ableton.v2.control_surface.mode import SetAttributeMode
-from ableton.v3.base import depends, find_if, memoize
+from ableton.v3.base import depends
 from ableton.v3.control_surface import Component, ControlSurface
 from ableton.v3.control_surface.component_map import ComponentMap
 from ableton.v3.control_surface.layer import Layer
@@ -30,7 +30,7 @@ from ableton.v3.control_surface.mode import (
 )
 
 from .elements import NUM_COLS, NUM_GRID_COLS, NUM_ROWS
-from .live import lazy_attribute
+from .live import find_if, lazy_attribute, memoize
 from .mode import (
     DISABLED_MODE_NAME,
     MODE_SELECT_MODE_NAME,

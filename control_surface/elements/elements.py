@@ -20,7 +20,7 @@ from ableton.v2.base import linear
 from ableton.v2.control_surface.defaults import (
     TIMER_DELAY,
 )
-from ableton.v3.base import clamp, depends, flatten
+from ableton.v3.base import clamp, depends
 from ableton.v3.control_surface import (
     MIDI_CC_TYPE,
     ControlElement,
@@ -31,7 +31,7 @@ from ableton.v3.control_surface.elements import (
 )
 
 from .. import sysex
-from ..live import lazy_attribute
+from ..live import flatten, lazy_attribute
 from ..types import KeySafetyStrategy, TypedDict
 from .button import LightedButtonElement
 from .display import DisplayElement
