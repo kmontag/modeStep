@@ -264,12 +264,6 @@ class MainModesComponent(ModesComponentBase):
         # was last seen before the current one.
         self._last_non_transient_mode = None
 
-        # During setup of mode components, Live activates their first added mode (see
-        # `ControlSurfaceMappingMixin::_setup_modes_component`). Add a blank mode
-        # immediately to make this activation a no-op. We'll select the "real" first
-        # mode (disabled mode) after the component setup is complete.
-        self.add_mode("_pre_init", CallFunctionMode())
-
         # Internal mode for transitioning from standalone to hosted mode, which requires
         # a pause (to get correct MIDI message ordering) before activating the next real
         # mode.

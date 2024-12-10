@@ -21,6 +21,7 @@ from ableton.v3.control_surface.capabilities import (
     inport,
     outport,
 )
+from typing_extensions import override
 
 from .clip_actions import ClipActionsComponent
 from .clip_slot import ClipSlotComponent
@@ -309,6 +310,18 @@ class modeStep(ControlSurface):
     @property
     def main_modes(self):
         return self.component_map["Main_Modes"]
+
+    @override
+    def _add_mode(self, mode_name, mode_spec, modes_component):
+        super()._add_mode(mode_name, mode_spec, modes_component)
+
+        # During mode component setup (`_setup_modes_component`), this function gets
+        # called to initialize modes, and then the component's first added mode gets
+        # activated unless another mode is explicitly enabled. It would be cumbersome to
+        # ensure that "_disabled_mode" is the first added mode, so we just enable it
+        # here as a special case.
+        if mode_name == DISABLED_MODE_NAME:
+            modes_component.selected_mode = mode_name
 
     def _create_identification(self, specification):
         identification = super()._create_identification(specification)
