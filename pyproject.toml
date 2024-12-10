@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "modeStep"
 version = "0.0.1"
-description = "Ableton Live 11+ control surface for the SoftStep 2"
+description = "Ableton Live 12 control surface for the SoftStep 2"
 authors = ["Kevin Montag <kmontag@cs.stanford.edu>"]
 readme = "README.md"
 
@@ -10,13 +10,11 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-# Newer python version for development tasks. Note this is different from Live's built-in
-# version (3.7), since some development packages have dropped support for 3.7.
-python = "^3.8"
+# Live's built-in python version as of 12.1.
+python = "^3.11"
 
 # Packages available at runtime in Live's "site-packages" folder.
-future = "0.18.2"
-raven = "6.10.0"
+future = "0.18.3"
 
 # Dependencies for testing and build tasks. These won't be available at runtime in Live.
 [tool.poetry.group.dev.dependencies]
@@ -53,7 +51,7 @@ typing-extensions = "^4.7.0"
 pythonVersion = "3.7"
 
 exclude = ["**/__pycache__", ".git", ".venv", "__ext__/"]
-extraPaths = ["./__ext__/System_MIDIRemoteScripts"]
+extraPaths = ["./__ext__/AbletonLive12_MIDIRemoteScripts"]
 
 # Suppress warnings about the Live module not existing.
 reportMissingModuleSource = false

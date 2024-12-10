@@ -1,12 +1,13 @@
 import logging
 from enum import Enum
 
-from ableton.v3.base import listens
 from ableton.v3.control_surface.components.channel_strip import (
     ChannelStripComponent as ChannelStripComponentBase,
 )
 from ableton.v3.control_surface.controls import MappedControl
 from ableton.v3.live import liveobj_valid
+
+from .live import listens
 
 logger = logging.getLogger(__name__)
 
