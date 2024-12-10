@@ -45,7 +45,7 @@ The controller will be placed into hosted mode.
 indicated by `Trns` on the SoftStep's screen. Try pressing key 3 to
 play/stop the transport.
 
-<a name='mode-select'></a>From any mode, you can press key 0 to open 
+<a name='mode-select'></a>From any mode, you can press key 0 to open
 the Mode Select screen, and choose where you want to go:
 
 ![mode select diagram](img/mode-select.svg)
@@ -128,8 +128,8 @@ assigned to session record.
 
 You can customize the track controls modes using
 `override_track_controls` in your
-[configuration](#python-configuration), or [edit them 
-directly](#editing-track-controls) if you need a different layout 
+[configuration](#python-configuration), or [edit them
+directly](#editing-track-controls) if you need a different layout
 in the moment.
 
 ## Advanced Usage
@@ -164,6 +164,7 @@ configuration = Configuration(
 )
 
 ```
+
 #### Set-specific configuration
 
 You can configure modeStep on a set-by-set basis by creating a clip
@@ -189,15 +190,16 @@ fields.
 Configuration is only loaded when a set is opened, so you'll need to
 save and re-open the set after creating this clip. Triggering or
 otherwise interacting with the clip doesn't do anything special.
+
 </details>
 
 <details>
 <summary><a name='editing-track-controls' /><h3>[+] Live-Editing Track Controls</h3></summary>
 
 You can modify track controls for the current session directly from
-the SoftStep (for persistent changes, use the 
-[configuration file](#python-configuration)). To do this, long-press 
-one of keys 1-5 on the Mode Select screen. You'll be prompted to 
+the SoftStep (for persistent changes, use the
+[configuration file](#python-configuration)). To do this, long-press
+one of keys 1-5 on the Mode Select screen. You'll be prompted to
 choose the control for the top row of pedals:
 
 ![configure preset diagram](img/edit-track-control.svg)
@@ -238,6 +240,7 @@ hold key 0 while editing a track controls mode to disable it. This
 disables the corresponding LED on the mode select screen. You can
 still reconfigure the mode by long-pressing the corresponding key on
 the mode select screen.
+
 </details>
 
 <details>
@@ -281,10 +284,11 @@ CCs in your MIDI mappings:
   mapping these might cause Live to send feedback that interferes with
   the SoftStep's LEDs and display.
 
-When using standalone presets, make sure that the `Remote` checkbox 
+When using standalone presets, make sure that the `Remote` checkbox
 is enabled for the modeStep MIDI input in Live's settings.
 
 _Note: if you're having issues with LED states being overwritten when
 switching in and out of standalone mode, make sure to set a
 `background_program` in your configuration._
+
 </details>
