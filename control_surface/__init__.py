@@ -431,7 +431,7 @@ class modeStep(ControlSurface):
                     task.sequence(
                         task.run(refresh_state_except_backlight), task.wait(0.2)
                     )
-                    for _ in range(10)
+                    for _ in range(20)
                 ],
             )
         )
