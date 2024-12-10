@@ -25,7 +25,7 @@ format: .make.install
 	$(POETRY) run ruff check --fix .
 
 .PHONY: check
-check: .make.install
+check: .make.install __ext__/AbletonLive12_MIDIRemoteScripts/README.md
 	$(POETRY) run pyright .
 
 .PHONY: test
@@ -41,6 +41,10 @@ clean:
 # The .venv folder gets created by poetry (because virtualenvs.in-project is enabled).
 	rm -rf .venv/
 	rm -f .make.*
+
+# Proxy target for the remote scripts submodule.
+__ext__/AbletonLive12_MIDIRemoteScripts/README.md: .gitmodules
+	git submodule update --init "$(@D)"
 
 # Set files with different configurations for testing.
 $(TEST_PROJECT_DIR)/%.als: .make.install $(TEST_PROJECT_DIR)/create_set.py
