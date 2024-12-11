@@ -321,8 +321,8 @@ class MappingsFactory:
             STANDALONE_INIT_MODE_NAME: {
                 "modes": [
                     # Unlike other standalone modes, the init mode doesn't get exited
-                    # via a button press (which usually triggers a delay before sending
-                    # the hosted mode sysexes). Instead, we need to enter hosted mode
+                    # via the `standalone_exit_button`, which would normally invoke the
+                    # transition to hosted mode. Instead, we need to enter hosted mode
                     # explicitly when leaving the mode. Since we already set the
                     # background program on entry, this shouldn't run into the MIDI
                     # batching issue that the other standalone modes need to work
@@ -387,8 +387,9 @@ class MappingsFactory:
             if (
                 standalone_program is not None
                 # Program changes cause blinks and other weirdness on the SoftStep. In
-                # case e.g. `standalone_program` is the same as the background program,
-                # we don't need to send both PC messages.
+                # case `standalone_program` is the same as the current program (e.g. if
+                # it's the same as the already-set background program), we don't need to
+                # send a new PC message.
                 and standalone_program != hardware.standalone_program
             ):
                 hardware.standalone_program = standalone_program
@@ -409,16 +410,21 @@ class MappingsFactory:
             CallFunctionMode(
                 on_enter_fn=partial(set_standalone_program, standalone_program)
             ),
-            # Send the standalone message on enter, but not on exit. Regardless of
-            # whether `_flush_midi_messages()` is called, `_c_instance.send_midi` seems
-            # to batch messages such that syses messages come first on a given
-            # frame. Re-entering hosted mode is handled by the modes component, in the
-            # standalone exit button handlers.
+            # Send the standalone message on enter, but not the hosted mode message on
+            # exit.
             #
-            # Note that the exit button is the only way that a mode change can be
-            # triggered from a standalone mode, except for disconnects (where we don't
-            # need to send any additional messages) or transitions out of
-            # _standalone_init_mode (which are handled specifically in that mode's
+            # Regardless of whether `_flush_midi_messages()` is called,
+            # `_c_instance.send_midi` seems to batch messages such that sysex messages
+            # come first on a given frame, meaning that if we sent the hosted-mode sysex
+            # on exit, we'd end up sending the background program change _after_ the
+            # controller was already in hosted mode (which defeats the purpose).
+            #
+            # Re-entering hosted mode happens (if necessary) when the next mode is
+            # within the standalone exit button handler. Note this relies on the fact
+            # that the `standalone_exit_button` is the only way to re-enter hosted mode
+            # from a standalone mode, except for transitions out of
+            # _standalone_init_mode (where the background PC gets sent at mode entry,
+            # and the transition to hosted mode is handled explicitly in the mode
             # definition).
             PersistentSetAttributeMode(hardware, "standalone", True),
             # The SoftStep seems to keep track of the current LED states for each

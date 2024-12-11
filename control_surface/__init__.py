@@ -21,6 +21,7 @@ from ableton.v3.control_surface.capabilities import (
     inport,
     outport,
 )
+from typing_extensions import override
 
 from .clip_actions import ClipActionsComponent
 from .clip_slot import ClipSlotComponent

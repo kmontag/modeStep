@@ -7,13 +7,13 @@ from enum import Enum
 from functools import partial
 from time import time
 
+from ableton.v2.control_surface.mode import SetAttributeMode
 from ableton.v3.base import depends, listenable_property, task
 from ableton.v3.control_surface.controls import ButtonControl
 from ableton.v3.control_surface.mode import (
     CallFunctionMode,
     Mode,
     ModeButtonBehaviour,
-    SetAttributeMode,
 )
 from ableton.v3.control_surface.mode import ModesComponent as ModesComponentBase
 
@@ -26,8 +26,8 @@ if typing.TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Mode activated while the controller is disconnected. Disables the hardware and
-# anything that could otherwise send MIDI messages.
+# Mode activated while the controller is disconnected. Disables the hardware component
+# and anything that could otherwise send MIDI messages.
 DISABLED_MODE_NAME = "_disabled"
 
 # Mode activated before transitioning out of disabled mode. Puts the controller into
@@ -35,7 +35,18 @@ DISABLED_MODE_NAME = "_disabled"
 STANDALONE_INIT_MODE_NAME = "_standalone_init"
 
 # Mode activated before transitioning from a user standalone mode to hosted mode. Pauses
-# briefly before performing the switch, to
+# briefly before performing the switch, to make sure that all MIDI messages (in
+# particular the standalone background PC) get sent before the hosted mode sysexes.
+#
+# This works around what appears to be low-level MIDI batching (which occurs regardless
+# of things like `_flush_midi_messages`) which puts sysexes ahead of all other messages
+# when they're sent on the same timer tick.
+#
+# Note that this mode is bound to the standalone exit button, which is in practice the
+# only way to get from a user standalone mode (i.e. other than `_standalone_init`) back
+# to a hosted mode. If we ever need to support e.g. other programmatic transitions to
+# hosted modes, we'll need to find a more general solution to delay mode-switching in
+# these cases.
 STANDALONE_TRANSITION_MODE_NAME = "_standalone_transition"
 
 MODE_SELECT_MODE_NAME: MainMode = "mode_select"
@@ -329,6 +340,9 @@ class MainModesComponent(ModesComponentBase):
     def _prepare_standalone_transition(self):
         # Delay the actual transition out of standalone mode to allow the background
         # program change message to be sent.
+        #
+        # Note we assume that no other modes will be activated in the meantime;
+        # otherwise we'd end up stomping on the activated mode after the delay.
         self._finish_standalone_transition_task.restart()
 
     @lazy_attribute
