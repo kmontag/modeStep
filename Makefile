@@ -45,15 +45,11 @@ clean:
 # Proxy target for the remote scripts submodule.
 __ext__/AbletonLive12_MIDIRemoteScripts/README.md: .gitmodules
 	git submodule update --init "$(@D)"
+	touch $@
 
 # Set files with different configurations for testing.
 $(TEST_PROJECT_DIR)/%.als: .make.install $(TEST_PROJECT_DIR)/create_set.py
 	$(POETRY) run python $(TEST_PROJECT_DIR)/create_set.py $*
-
-# decompyle3 works for most files, and the ones where it doesn't don't
-# matter for our purposes.
-	$(POETRY) run decompyle3 -r -o $(@D)/ableton/ $(SYSTEM_MIDI_REMOTE_SCRIPTS_DIR)/ableton/
-
 	touch $@
 
 .make.install: pyproject.toml poetry.lock
