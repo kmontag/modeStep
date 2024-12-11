@@ -21,7 +21,6 @@ from ableton.v3.control_surface.capabilities import (
     inport,
     outport,
 )
-from typing_extensions import override
 
 from .clip_actions import ClipActionsComponent
 from .clip_slot import ClipSlotComponent
@@ -311,7 +310,6 @@ class modeStep(ControlSurface):
     def main_modes(self):
         return self.component_map["Main_Modes"]
 
-    @override
     def _add_mode(self, mode_name, mode_spec, modes_component):
         super()._add_mode(mode_name, mode_spec, modes_component)
 
