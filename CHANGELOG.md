@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## v0.0.4 (2024-12-11)
+
+### Chore
+
+* chore: remove stray decompyle call ([`e3f2a6e`](https://github.com/kmontag/modeStep/commit/e3f2a6eb2628a0f02a0e04df2efbb9abac0bddc5))
+
+* chore: ensure that disabled mode is the first activated mode
+
+Avoids added complexity with the pre-init mode in the mode stack. ([`2fd63da`](https://github.com/kmontag/modeStep/commit/2fd63da9715235ecaa877effddb436aab52f0478))
+
+### Fix
+
+* fix: unavailable runtime import ([`e572fca`](https://github.com/kmontag/modeStep/commit/e572fca99fdc301bed594c4c43e58b65f64c84f7))
+
 ## v0.0.3 (2024-12-11)
 
 ### Fix
