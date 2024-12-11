@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## v0.0.3 (2024-12-11)
+
+### Fix
+
+* fix: increase attempts to reset LEDs after backlight changes
+
+The underlying firmware bug sometimes triggers later than expected. ([`63c9fd6`](https://github.com/kmontag/modeStep/commit/63c9fd64f4c16fcfca0e917bcffb31b49ec2d43d))
+
+* fix: fix MIDI messages out of order when exiting a standalone mode
+
+Live&#39;s internal MIDI batching was causing sysex messages (i.e. to transition back to
+hosted mode) to be sent before the background mode program change. ([`de12e1d`](https://github.com/kmontag/modeStep/commit/de12e1dabcae5d891d94d9dad3df548fc5288724))
+
+* fix: fix some mode buttons not updating during mode switches ([`d81f005`](https://github.com/kmontag/modeStep/commit/d81f00511bce09472c518ebf737d7aee770d9500))
+
 ## v0.0.2 (2024-12-10)
 
 ### Chore
