@@ -326,14 +326,14 @@ Feature: Track controls modes
 
     # Go to the bottom controls and actually perform the delete.
     When I press key 1
-    And I hold key 0
     Then the display should be "Vol"
 
-    When I wait to trigger a long-press
+    When I hold key 0
+    And I wait to trigger a long-press
     Then light 0 should be fast-blinking red
 
     # Wait for the delete.
-    When I wait for 1.1s
+    When I wait for 0.8s
     Then light 0 should be solid red
     And the display should be "DeL5"
     And light 5 should be off
