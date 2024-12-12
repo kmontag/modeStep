@@ -76,11 +76,9 @@ is_debug = "DEBUG" in os.environ
 
 T = TypeVar("T")
 
-# Time between received MIDI messages before the state can be considered stable,
-# i.e. fully updated by Live.
-STABILITY_DURATION = 0.25
-# Time between iterations of polling loops.
-POLL_INTERVAL = 0.03
+# Standard identity request, see
+# http://midi.teragonaudio.com/tech/midispec/identity.htm.
+IDENTITY_REQUEST_SYSEX = (0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7)
 
 # Copypasta but we want to isolate the test files from the main module.
 RED_LED_BASE_CC = 20
@@ -99,10 +97,22 @@ MIDI_CHANNEL = 0
 # The number of seconds to wait after the controller responds to a ping before
 # considering it responsive. Particularly when booting Live to open a set, there's
 # usually a period where the controller reacts slowly after responding to a ping.
-RESPONSIVENESS_DELAY = 1.25
+RESPONSIVENESS_DELAY = 1.5
+
+# Time after user actions to wait for potential responses from Live, e.g. when
+# considering whether the device state is stable.
+MIDI_RESPONSE_DELAY = 0.3
+
+# Time between incoming messages before the device state can be considered stable,
+# i.e. fully updated by Live. This should be shorter than the framerate of scrolling
+# text, i.e. 0.2s.
+STABILITY_DELAY = 0.15
 
 # Seconds to wait to trigger a long press.
-LONG_PRESS_DELAY = 0.9
+LONG_PRESS_DELAY = 0.6
+
+# Time between iterations of polling loops.
+POLL_INTERVAL = 0.03
 
 # The number of separate messages, which we'll track individually, which need to be sent
 # to switch modes.
@@ -392,8 +402,9 @@ class DeviceState:
                 assert isinstance(program, int)
                 self._standalone_program = program
 
-            # Identity request, see http://midi.teragonaudio.com/tech/midispec/identity.htm.
-            elif matches_sysex(msg, (0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7)):
+            # Identity request sent by Live during startup (potentially more than once)
+            # and when MIDI ports change.
+            elif matches_sysex(msg, IDENTITY_REQUEST_SYSEX):
                 # Greeting request flag gets set forever once the message has been
                 # received.
                 if not self._identity_request_event.is_set():
@@ -455,7 +466,7 @@ class DeviceState:
     async def wait_until_stable(
         self,
         categories: Optional[Collection[DeviceState.UpdateCategory]] = None,
-        duration: float = STABILITY_DURATION,
+        duration: float = STABILITY_DELAY,
     ):
         if categories is None:
             categories = list(DeviceState.UpdateCategory)
@@ -653,6 +664,7 @@ def message_queue(
 @fixture
 def device_state(
     message_queue: MessageQueue,
+    ioport: mido.ports.BaseOutput,
     loop: asyncio.AbstractEventLoop,
 ) -> Generator[DeviceState, Never, None]:
     device_state = DeviceState()
@@ -661,6 +673,26 @@ def device_state(
         while True:
             message = await message_queue.get()
             device_state.receive_message(message)
+
+            # Respond to all identity requests. Live sometimes (unclear exactly under
+            # what circumstances) sends these multiple times during startup/connection
+            # events, and we need to respond to all of them to ensure that the control
+            # surface doesn't get deactivated.
+            #
+            # This handler probably belongs elsewhere (e.g. an I/O version of the
+            # DeviceState class) but it works here for now.
+            if matches_sysex(message, IDENTITY_REQUEST_SYSEX):
+                ioport.send(
+                    mido.Message(
+                        "sysex",
+                        # Identity response.
+                        data=(
+                            (0x7E, 0x7F, 0x06, 0x02)
+                            + sysex.MANUFACTURER_ID_BYTES
+                            + sysex.DEVICE_FAMILY_BYTES
+                        ),
+                    )
+                )
 
     receive_messages_task = loop.create_task(receive_messages())
     yield device_state
@@ -672,21 +704,9 @@ def device_state(
 @fixture
 @sync
 async def device_identified(
-    ioport: mido.ports.BaseOutput,
     device_state: DeviceState,
 ):
     await device_state.wait_for_identity_request()
-    ioport.send(
-        mido.Message(
-            "sysex",
-            # Identity response.
-            data=(
-                (0x7E, 0x7F, 0x06, 0x02)
-                + sysex.MANUFACTURER_ID_BYTES
-                + sysex.DEVICE_FAMILY_BYTES
-            ),
-        )
-    )
     return True
 
 
@@ -819,18 +839,14 @@ def cc_action(
 def stabilize_after_cc_action(
     loop: asyncio.AbstractEventLoop,
     device_state: DeviceState,
-    duration: float = STABILITY_DURATION,
+    duration: float = STABILITY_DELAY,
+    initial_duration: float = MIDI_RESPONSE_DELAY,
 ):
-    # Add a pause before.
-    loop.run_until_complete(asyncio.sleep(duration))
+    # Add a pause beforehand, to allow CCs to start coming in.
+    loop.run_until_complete(asyncio.sleep(initial_duration))
 
-    # Wait for stability. Allow display updates, in case the display is scrolling faster
-    # than the stability time.
-    categories = list(DeviceState.UpdateCategory)
-    categories.remove(DeviceState.UpdateCategory.display)
-    loop.run_until_complete(
-        device_state.wait_until_stable(duration=duration, categories=categories)
-    )
+    # Wait until the device state has stabilized.
+    loop.run_until_complete(device_state.wait_until_stable(duration=duration))
 
     # Add a pause after for good measure.
     loop.run_until_complete(asyncio.sleep(duration))
@@ -963,17 +979,7 @@ def should_be_colors(start: int, end: int, color: str, device_state: DeviceState
 def should_be_text(
     text: str,
     device_state: DeviceState,
-    loop: asyncio.AbstractEventLoop,
 ):
-    # Wait for one tick of stability, to make sure we're not in the middle of a partial
-    # display update during a scroll. If the display is already stable, this will return
-    # immediately.
-    loop.run_until_complete(
-        device_state.wait_until_stable(
-            duration=0.1, categories=[DeviceState.UpdateCategory.display]
-        )
-    )
-
     assert device_state.display_text.rstrip() == text
 
 
