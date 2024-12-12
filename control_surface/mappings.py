@@ -272,9 +272,13 @@ class MappingsFactory:
         mappings: Mappings = {}
 
         mappings["Hardware"] = dict(
-            # Turned off by default, since we'll be in `_disabled` mode at startup. This
-            # shouldn't be toggled except when entering/exiting `_disabled` mode.
-            enable=False,
+            # Enabled by default to allow pings from the test runner even before the
+            # controller is identified.
+            #
+            # This means we need to take care to mark the other device state as
+            # unmanaged (e.g. `standalone` and `backlight` set to `None`) while the
+            # controller is unidentified, i.e. in disabled mode.
+            enable=True,
             # Permanent hardware mappings.
             backlight_sysex="backlight_sysex",
             standalone_sysex="standalone_sysex",
@@ -285,7 +289,8 @@ class MappingsFactory:
         def set_backlight(backlight: bool):
             self._get_component("Hardware").backlight = backlight
 
-        # Toggle modes. Actions get mapped to the cycle buttons.
+        # Toggle modes, controlled by individual mode components. Actions get mapped to
+        # the cycle buttons.
         for name, initial_state, set_state in (
             (
                 "Auto_Arm_Modes",
@@ -307,19 +312,30 @@ class MappingsFactory:
         mappings["Main_Modes"] = {
             "modes_component_type": MainModesComponent,
             # Base mode where no values should ever be sent. Active while the controller
-            # is disconnected, which gives us better control over the order of
-            # operations when it connects.
+            # is disconnected (or while its connection state is unknown). Transitions
+            # into and out of this mode are managed by the main control surface
+            # instance.
             DISABLED_MODE_NAME: {
                 "modes": [
                     # Make sure the background has no bindings, so no more LED updates get sent.
                     LayerMode(self._get_component("Background"), Layer()),
                     # Drop all pending messages.
                     CallFunctionMode(on_enter_fn=self.__drop_accumulated_ccs),
-                    # The hardware component has persistent element mappings, and their
-                    # associated sysex values could get sent on refresh. Explicitly
-                    # disable the component on entry (and enable it on exit) to avoid
-                    # accidentally sending values.
-                    InvertedMode(EnablingMode(self._get_component("Hardware"))),
+                    # Explicitly mark the standalone status as unmanaged, and don't
+                    # reset it on mode exit. Subsequent modes will update it as
+                    # necessary.
+                    PersistentSetAttributeMode(
+                        self._get_component("Hardware"), "standalone", None
+                    ),
+                    # Explicitly mark the backlight as unmanaged, and reset it to the
+                    # previous value on mode exit, i.e. re-send the current backlight
+                    # state (if any).
+                    #
+                    # Note this assumes that we won't be interacting with the backlight
+                    # toggle component while disabled mode is active.
+                    SetAttributeMode(
+                        self._get_component("Hardware"), "backlight", None
+                    ),
                 ]
             },
             # Add a mode that just switches to standalone mode and selects the
@@ -357,31 +373,45 @@ class MappingsFactory:
         assert component
         return component
 
+    def __set_standalone_if_modified(self, standalone: Optional[bool]):
+        hardware = self._get_component("Hardware")
+
+        # The hardware component's `standalone` setter will potentially send sysex
+        # values even if the new standalone state matches the old one. Check the value
+        # first to avoid sending unnecessary sysex updates (which cause momentary
+        # unresponsiveness on the controller).
+        if hardware.standalone != standalone:
+            hardware.standalone = standalone
+
+    # Force MIDI updates next time elements are updated, even if the control surface
+    # thinks the update is unnecessary. This gets called within
+    # `__drop_accumulated_ccs`, and should also be called when returning to hosted mode
+    # from standalone mode.
+    def __clear_send_caches(self):
+        elements = self._control_surface.elements
+        assert elements
+
+        elements.display.clear_send_cache()
+        for light in elements.lights_raw:
+            light.clear_send_cache()
+
+    # Clear any pending CC messages, without actually sending them.
+    def __drop_accumulated_ccs(self):
+        with self._control_surface.suppressing_send_midi(
+            # CC status byte is 0xBx.
+            lambda msg: 0xB0 <= msg[0] < 0xC0
+        ):
+            self._control_surface._ownership_handler.commit_ownership_changes()
+            self._control_surface._flush_midi_messages()
+
+        # The control surface might now have elements in its MIDI cache which weren't
+        # actually sent.
+        self.__clear_send_caches()
+
     # Return a mode which enters standalone mode and activates the given program (if
     # any), and returns to the background program (if any) on exit.
     def _enter_standalone_mode(self, standalone_program: Optional[int]) -> Mode:
         hardware = self._get_component("Hardware")
-
-        def clear_send_caches():
-            elements = self._control_surface.elements
-            assert elements
-
-            elements.display.clear_send_cache()
-            for light in elements.lights_raw:
-                light.clear_send_cache()
-
-        # Clear any pending CC messages, without actually sending them. The flush is
-        # necessary to prevent the messages from getting batched and sent after the
-        # program change. There's also no reason to send CCs before switching to
-        # standalone mode, as the display will get overwritten by the hardware, so we
-        # can just suppress them during the flush.
-        def flush():
-            with self._control_surface.suppressing_send_midi(
-                # CC status byte is 0xBx.
-                lambda msg: 0xB0 <= msg[0] < 0xC0
-            ):
-                self._control_surface._ownership_handler.commit_ownership_changes()
-                self._control_surface._flush_midi_messages()
 
         def set_standalone_program(standalone_program: Optional[int]):
             if (
@@ -395,23 +425,28 @@ class MappingsFactory:
                 hardware.standalone_program = standalone_program
 
         return CompoundMode(
-            # We don't have control of the LEDs and display while standalone mode is
-            # active, so make sure everything gets rendered as we re-enter hosted
-            # mode. This also ensures that LED states will all be rendered on
-            # disconnect/reconnect events, since we pass through _standalone_init mode
-            # in that case.
-            CallFunctionMode(on_exit_fn=clear_send_caches),
+            # Drop accumulated MIDI data before beginning the transition to standalone
+            # mode. This avoids potential batching issues with message ordering while MIDI
+            # messages are being accumulated. CC messages are also pointless at this
+            # stage, since the hardware will take control of the interface in standalone
+            # mode.
+            CallFunctionMode(on_enter_fn=self.__drop_accumulated_ccs),
             # Flush accumulated MIDI data before beginning the transition to standalone
             # mode.
-            CallFunctionMode(on_enter_fn=flush),
+            #
+            # In principle this is unnecessary as `__drop_accumulated_ccs` also calls
+            # this method on entry, but this serves as a failsafe in case anything weird
+            # happens with component states while the controller is in standalone mode.
+            CallFunctionMode(on_exit_fn=self.__clear_send_caches),
             # Set the program attribute before actually switching into standalone mode,
             # so that we don't send an extra message for whatever program is currently
-            # active.
+            # active while we set the hardware's standalone state. If the device is
+            # already in standalone mode, this will just send the message immediately.
             CallFunctionMode(
                 on_enter_fn=partial(set_standalone_program, standalone_program)
             ),
-            # Send the standalone message on enter, but not the hosted mode message on
-            # exit.
+            # Set the standalone state on enter (if necessary), but don't revert
+            # it to the previous value on exit.
             #
             # Regardless of whether `_flush_midi_messages()` is called,
             # `_c_instance.send_midi` seems to batch messages such that sysex messages
@@ -426,7 +461,9 @@ class MappingsFactory:
             # _standalone_init_mode (where the background PC gets sent at mode entry,
             # and the transition to hosted mode is handled explicitly in the mode
             # definition).
-            PersistentSetAttributeMode(hardware, "standalone", True),
+            CallFunctionMode(
+                on_enter_fn=partial(self.__set_standalone_if_modified, True)
+            ),
             # The SoftStep seems to keep track of the current LED states for each
             # standalone preset in the setlist. Whenever a preset is loaded, the Init
             # source will fire (potentially setting some LED states explicitly), and any
@@ -614,17 +651,9 @@ class MappingsFactory:
                 component="Device", expression_pedal="expression_slider"
             )
 
-            def ensure_hosted_mode():
-                hardware = self._get_component("Hardware")
-
-                # The hardware component's setter will send sysex values even if the new
-                # standalone state matches the old one. Check the value first to avoid
-                # sending unnecessary sysex updates (which cause momentary
-                # unresponsiveness on the controller).
-                if hardware.standalone:
-                    hardware.standalone = False
-
-            hardware_mode = CallFunctionMode(on_enter_fn=ensure_hosted_mode)
+            hardware_mode = CallFunctionMode(
+                on_enter_fn=partial(self.__set_standalone_if_modified, False)
+            )
 
         # Navigation controls.
         navigation_mode = self._navigation_mode(*(self._mode_navigation_targets(mode)))

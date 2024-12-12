@@ -257,7 +257,7 @@ class modeStep(ControlSurface):
             ]
 
         # Internal tracker during connect/reconnect events.
-        self._mode_after_identified = self._configuration.initial_mode
+        self.__mode_after_identified = self._configuration.initial_mode
 
         self.__suppressing_send_midi_predicate: typing.Optional[
             Predicate[MidiBytes]
@@ -368,57 +368,61 @@ class modeStep(ControlSurface):
             self._identity_response_timeout_task.kill()
 
         # We'll reach this point on startup, as well as when MIDI ports change (due to
-        # hardware disconnects/reconnects or changes in the Live settings). Don't do
-        # anything unless we're currently in disabled mode, i.e. unless we're
-        # transitioning from a disconnected controller - there's no need to switch in
-        # and out of standalone mode otherwise.
-        if (
-            self.main_modes.selected_mode is None
-            or self.main_modes.selected_mode == DISABLED_MODE_NAME
-        ):
-            # Force the controller into standalone mode, and send the standalone
-            # background program, if any.
-            self.main_modes.selected_mode = STANDALONE_INIT_MODE_NAME
+        # hardware disconnects/reconnects or changes in the Live settings).
+        #
+        # For port changes, we don't know for sure whether the SoftStep was disconnected
+        # (as opposed to a different device), so it's safest to always go through the
+        # full startup process. False positives will briefly interrupt the device if
+        # it's already connected, but some built-in control surfaces also have this
+        # issue.
+        #
+        # First, pass through disabled mode to ensure that all display elements and
+        # sysex statuses get refreshed.
+        self.__store_state_and_disable()
 
-            # After a short delay, load the main desired mode. This
-            # ensures that all MIDI messages for initialization in
-            # standalone mode get sent before the main mode begins to
-            # load, which avoids weird issues with MIDI batching etc.
-            if not self._on_identified_task.is_killed:
-                self._on_identified_task.kill()
-            self._on_identified_task.restart()
+        # Next force the controller into standalone mode, and send the standalone
+        # background program (if any).
+        self.main_modes.selected_mode = STANDALONE_INIT_MODE_NAME
+
+        # After a short delay, load the main desired mode. This ensures that all MIDI
+        # messages for initialization in standalone mode get sent before the main mode
+        # begins to load, which avoids weird issues with MIDI batching etc.
+        if not self._on_identified_task.is_killed:
+            self._on_identified_task.kill()
+        self._on_identified_task.restart()
 
     # Invoked after a delay if an identity request is sent but no
     # response is received.
     def _on_identity_response_timeout(self):
-        # Store the mode that we should enable when/if the controller
-        # is (re-)connected. The checks ensure that the first time
-        # this is called (or if it's somehow called multiple times
-        # before callbacks have finished running), this case won't be
-        # reached and the mode variable will keep its current value.
+        # Store the current mode in case so we can enable it if the controller
+        # reconnects, and relinquish control of everything.
+        #
+        # This ensures that nothing will be bound when/if the controller is next
+        # identified, and that we ignore any MIDI messages sent by e.g. other hardware
+        # that was connected on this port.
+        self.__store_state_and_disable()
+
+    # Store any state needed to restore the controller to its current state (if it's
+    # active), and place the controller into disabled mode if it isn't already.
+    def __store_state_and_disable(self):
+        # If a mode is currently active (other than passthrough modes during startup),
+        # store it so it can be enabled when/if the controller is (re-)activated.
         if (
             self.main_modes.selected_mode
             and self.main_modes.selected_mode != DISABLED_MODE_NAME
             and self.main_modes.selected_mode != STANDALONE_INIT_MODE_NAME
         ):
-            self._mode_after_identified = self.main_modes.selected_mode
+            self.__mode_after_identified = self.main_modes.selected_mode
 
-        # Enter disabled mode, which relinquishes control of everything. This ensures
-        # that sysex state values will be invalidated (by disconnecting their control
-        # elements), and nothing will be bound when the controller is next identified,
-        # so we won't send a bunch of LED messages before placing it into hosted
-        # mode. (This could still happen if the controller were connected and
-        # disconnected quickly, but in any case it would just potentially mess with
-        # standalone-mode LEDs.)
-        self.main_modes.selected_mode = DISABLED_MODE_NAME
+        if self.main_modes.selected_mode != DISABLED_MODE_NAME:
+            self.main_modes.selected_mode = DISABLED_MODE_NAME
 
     @listens("is_identified")
     def __on_is_identified_changed_local(self, is_identified: bool):
-        # This will trigger on startup, and whenever a new identity
-        # request is sent to an already-identified controller
-        # (e.g. when devices are connected/disconnected). If we don't
-        # get a timely response, we can assume the controller was
-        # physically disconnected.
+        # This will trigger on startup, and whenever a new identity request is sent to
+        # an already-identified controller (e.g. when devices are
+        # connected/disconnected). If we don't get a timely response, we can assume the
+        # controller was physically disconnected.
         if not is_identified:
             self._identity_response_timeout_task.restart()
 
@@ -447,8 +451,8 @@ class modeStep(ControlSurface):
 
     def _after_identified(self):
         mode = (
-            self._mode_after_identified
-            if self._mode_after_identified is not None
+            self.__mode_after_identified
+            if self.__mode_after_identified is not None
             else self._configuration.initial_mode
         )
         self.main_modes.selected_mode = mode
