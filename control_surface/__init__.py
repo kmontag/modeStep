@@ -297,18 +297,8 @@ class modeStep(ControlSurface):
     def setup(self):
         super().setup()
 
-        hardware = self.component_map["Hardware"]
-        # Activate the background program before doing anything. The program change will
-        # get sent when the controller is placed into `_stanadlone_init_mode`. No-op if
-        # no background program has been set.
-        hardware.standalone_program = self._configuration.background_program
-
-        # Turn on hosted mode by default, so it doesn't need to be specified explicitly
-        # in normal (non-standalone) mode layers.
-        hardware.standalone = False
-
-        # Activate `_disabled` mode, which will enable the hardware controller in its
-        # `on_leave` callback.
+        # Activate `_disabled` mode, which will enable the hardware component when it
+        # exits.
         self.main_modes.selected_mode = DISABLED_MODE_NAME
 
         # Listen for backlight color values, to hack around the weird LED behavior when

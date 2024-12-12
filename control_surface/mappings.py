@@ -311,7 +311,14 @@ class MappingsFactory:
             # operations when it connects.
             DISABLED_MODE_NAME: {
                 "modes": [
+                    # Make sure the background has no bindings, so no more LED updates get sent.
                     LayerMode(self._get_component("Background"), Layer()),
+                    # Drop all pending messages.
+                    CallFunctionMode(on_enter_fn=self.__drop_accumulated_ccs),
+                    # The hardware component has persistent element mappings, and their
+                    # associated sysex values could get sent on refresh. Explicitly
+                    # disable the component on entry (and enable it on exit) to avoid
+                    # accidentally sending values.
                     InvertedMode(EnablingMode(self._get_component("Hardware"))),
                 ]
             },
@@ -321,19 +328,12 @@ class MappingsFactory:
             STANDALONE_INIT_MODE_NAME: {
                 "modes": [
                     # Unlike other standalone modes, the init mode doesn't get exited
-                    # via the `standalone_exit_button`, which would normally invoke the
-                    # transition to hosted mode. Instead, we need to enter hosted mode
-                    # explicitly when leaving the mode. Since we already set the
-                    # background program on entry, this shouldn't run into the MIDI
-                    # batching issue that the other standalone modes need to work
-                    # around.
-                    InvertedMode(
-                        PersistentSetAttributeMode(
-                            self._get_component("Hardware"), "standalone", False
-                        )
-                    ),
+                    # via the `standalone_exit_button`, which would normally insert a
+                    # delay between sending the standalone background program and
+                    # swtiching to a hosted mode. Instead, we set the background program
+                    # on mode entry, and rely on the fact that the control surface
+                    # inserts a delay explicitly while it passes through this mode.
                     self._enter_standalone_mode(self._configuration.background_program),
-                    # TODO: Make sure LEDs are cleared.
                 ]
             },
         }
@@ -530,6 +530,9 @@ class MappingsFactory:
     def _action_button(self):
         return get_element("buttons", 1, 4)
 
+    # Create one of the main user-facing modes (including user standalone modes). Apply
+    # any overrides from the configuration, and for hosted modes, set up hardware
+    # elements.
     def _create_main_mode(self, mode: MainMode) -> RootModeSpecification:
         main_mode_specification = self._main_mode_factory(mode)()
 
@@ -538,6 +541,8 @@ class MappingsFactory:
         behaviour = None
         mode_category = get_main_mode_category(mode)
 
+        # Check whether this mode is assigned to short-press anywhere on the mode select
+        # screen.
         def is_leading_mode(
             key_mapping: Optional[ModeSelectKeySpecification],
         ):
@@ -586,12 +591,17 @@ class MappingsFactory:
 
         # Control layers which are present in all non-standalone modes.
         main_modes_mode: SimpleModeSpecification
+        hardware_mode: SimpleModeSpecification
         expression_mode: SimpleModeSpecification
         if mode_category is MainModeCategory.standalone:
             # Standalone modes shouldn't bind anything (except the exit button, which
             # gets set up elsewhere).
             main_modes_mode = CallFunctionMode()
             expression_mode = CallFunctionMode()
+
+            # Hardware changes for standalone modes get handled by the modes themselves
+            # via `_enter_standalone_mode`.
+            hardware_mode = CallFunctionMode()
         else:
             # Bind the mode select button.
             main_modes_mode = {
@@ -603,6 +613,18 @@ class MappingsFactory:
             expression_mode = dict(
                 component="Device", expression_pedal="expression_slider"
             )
+
+            def ensure_hosted_mode():
+                hardware = self._get_component("Hardware")
+
+                # The hardware component's setter will send sysex values even if the new
+                # standalone state matches the old one. Check the value first to avoid
+                # sending unnecessary sysex updates (which cause momentary
+                # unresponsiveness on the controller).
+                if hardware.standalone:
+                    hardware.standalone = False
+
+            hardware_mode = CallFunctionMode(on_enter_fn=ensure_hosted_mode)
 
         # Navigation controls.
         navigation_mode = self._navigation_mode(*(self._mode_navigation_targets(mode)))
@@ -627,6 +649,8 @@ class MappingsFactory:
 
         return {
             "modes": [
+                # Enable hosted mode if necessary.
+                hardware_mode,
                 # Special key safety strategy if any.
                 key_safety_mode,
                 # Make sure any unbound LEDs are turned off.

@@ -354,9 +354,8 @@ class MainModesComponent(ModesComponentBase):
         return finish_standalone_transition_task
 
     def _finish_standalone_transition(self):
-        # After the delay, the background program change message should have been sent,
-        # so we can now send the actual sysexes to switch to hosted mode.
-        self._hardware.standalone = False
+        # After the delay, the background program change message should have been
+        # sent. Now we can safely switch to a hosted mode.
         if self.__standalone_transition_is_mode_select:
             self.push_mode(MODE_SELECT_MODE_NAME)
         else:
