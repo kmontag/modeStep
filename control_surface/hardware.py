@@ -4,7 +4,6 @@ from typing import Any, Callable, Optional, Union
 from ableton.v2.control_surface.control.sysex import ColorSysexControl
 from ableton.v3.base import depends
 from ableton.v3.control_surface.component import Component
-from ableton.v3.control_surface.controls import ButtonControl
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +30,6 @@ class HardwareComponent(Component):
     # as colors.
     backlight_sysex: ColorSysexControl.State = NullableColorSysexControl(color=None)  # type: ignore
     standalone_sysex: ColorSysexControl.State = ColorSysexControl(color=False)  # type: ignore
-
-    ping_button: Any = ButtonControl()
 
     @depends(send_midi=None)
     def __init__(
@@ -85,12 +82,6 @@ class HardwareComponent(Component):
     def standalone_program(self, standalone_program: Union[int, None]):
         self._standalone_program = standalone_program
         self._update_standalone_program()
-
-    @ping_button.pressed
-    def ping_input(self, _):
-        if self.is_enabled():
-            logger.info("ponging ping")
-            self.ping_button.control_element.send_value(True)
 
     def update(self):
         super().update()

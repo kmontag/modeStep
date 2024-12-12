@@ -272,16 +272,18 @@ class MappingsFactory:
         mappings: Mappings = {}
 
         mappings["Hardware"] = dict(
-            # Enabled by default to allow pings from the test runner even before the
-            # controller is identified.
-            #
-            # This means we need to take care to mark the other device state as
-            # unmanaged (e.g. `standalone` and `backlight` set to `None`) while the
-            # controller is unidentified, i.e. in disabled mode.
-            enable=True,
+            # Initially disabled. Enabling/disabling this component should only happen
+            # during transitions from/to disabled mode; all other modes can assume that
+            # it's enabled.
+            enable=False,
             # Permanent hardware mappings.
             backlight_sysex="backlight_sysex",
             standalone_sysex="standalone_sysex",
+        )
+
+        mappings["Ping"] = dict(
+            # Always enabled.
+            enable=True,
             # Ping input used by tests.
             ping_button="ping_sysex",
         )
@@ -336,6 +338,13 @@ class MappingsFactory:
                     SetAttributeMode(
                         self._get_component("Hardware"), "backlight", None
                     ),
+                    # Disable the hardware component on entry, and re-enable it on
+                    # entry. This isn't totally necessary as the controlled parameters
+                    # are already marked as unmanaged, but it serves as a failsafe
+                    # against sysex messages being sent, and it's a clean way to enable
+                    # the hardware component after device identification, but leave it
+                    # disabled during init.
+                    InvertedMode(EnablingMode(self._get_component("Hardware"))),
                 ]
             },
             # Add a mode that just switches to standalone mode and selects the

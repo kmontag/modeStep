@@ -40,6 +40,7 @@ from .mappings import (
     create_mappings,
 )
 from .mixer import MixerComponent
+from .ping import PingComponent
 from .recording import RecordingComponent
 from .scene import SceneComponent
 from .session import SessionComponent
@@ -201,6 +202,7 @@ class Specification(ControlSurfaceSpecification):
         "Device": create_device_component,
         "Hardware": HardwareComponent,
         "Mixer": MixerComponent,
+        "Ping": PingComponent,
         # The recording component has some special init in the default component map,
         # but we're overriding it.
         "Recording": RecordingComponent,
