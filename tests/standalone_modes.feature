@@ -4,7 +4,8 @@ Feature: Standalone modes
 
   Scenario: Setting the standalone background mode
     Given the SS2 is initialized
-    Then the standalone background program should be active
+    Then the SS2 should be in hosted mode
+    And the standalone background program should be active
 
   Scenario: Switching into and out of standalone modes
     Given the SS2 is initialized
