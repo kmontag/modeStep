@@ -43,8 +43,8 @@ if TYPE_CHECKING:
     import control_surface.sysex as sysex
 else:
     # Outside the type checker, we don't have direct import access to the main control
-    # surface, but the sysex constants would be too annoying to duplicate. Load it manually
-    # from the path, see
+    # surface, but the hardware and sysex constants would be too annoying to
+    # duplicate. Load it manually from the path, see
     # https://csatlas.com/python-import-file-module/#import_a_file_in_a_different_directory.
     def _load_module_from_path(name: str, path: str):
         path = os.path.join(path, f"{name}.py")
@@ -76,9 +76,9 @@ is_debug = "DEBUG" in os.environ
 
 T = TypeVar("T")
 
-# Time between update messages before the state can be considered stable, i.e. fully
-# updated by Live. This should be shorter than the display scroll duration (0.2s).
-STABILITY_DURATION = 0.15
+# Time between received MIDI messages before the state can be considered stable,
+# i.e. fully updated by Live.
+STABILITY_DURATION = 0.25
 # Time between iterations of polling loops.
 POLL_INTERVAL = 0.03
 
@@ -95,6 +95,14 @@ DISPLAY_BASE_CC = 50
 DISPLAY_WIDTH = 4
 
 MIDI_CHANNEL = 0
+
+# The number of seconds to wait after the controller responds to a ping before
+# considering it responsive. Particularly when booting Live to open a set, there's
+# usually a period where the controller reacts slowly after responding to a ping.
+RESPONSIVENESS_DELAY = 1.25
+
+# Seconds to wait to trigger a long press.
+LONG_PRESS_DELAY = 0.9
 
 # The number of separate messages, which we'll track individually, which need to be sent
 # to switch modes.
@@ -313,6 +321,7 @@ class DeviceState:
                     + sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS
                 ), f"Invalid sysex message while switching between standalone and hosted mode: {msg}"
 
+            # Now handle the message in the interface.
             if msg.is_cc():
                 assert (
                     msg_channel == MIDI_CHANNEL
@@ -682,13 +691,11 @@ async def device_identified(
 
 
 # Open a Live set by name. This will reload the control surface, resetting the mode and
-# session ring position. Do this in a Background to get a clean control surface at the
-# beginning of each scenario.
+# session ring position.
 #
 # See the Live project in this directory (and the python helper there) for the available
 # sets.
-@given(parsers.parse("the {set_name} set is open"))
-def given_set_is_open(set_name):
+def _open_live_set(set_name: str):
     dir = os.path.dirname(os.path.realpath(__file__))
     set_name = os.path.normpath(set_name)
     assert "/" not in set_name  # sanity check
@@ -698,6 +705,13 @@ def given_set_is_open(set_name):
     # Opens as if it were double clicked in the file browser. Unfortunately setting
     # autoraise doesn't seem to successfully prevent focus.
     webbrowser.open(f"file://{set_file}", autoraise=False)
+
+
+# Do this in a Background to get a clean control surface at the beginning of each
+# scenario.
+@given(parsers.parse("the {set_name} set is open"))
+def given_set_is_open(set_name):
+    _open_live_set(set_name)
 
 
 # Wait for Live to send initial CC updates after the device has been identified.
@@ -717,7 +731,7 @@ async def given_control_surface_is_initialized(
         # This was added in python 3.11. The type-checker is set to an earlier version for
         # the main application, but the tests themselves run with a version where this is
         # available.
-        async with asyncio.timeout(15):  # type: ignore
+        async with asyncio.timeout(30):  # type: ignore
             assert device_identified
 
             # Wait until something gets rendered to the display.
@@ -743,8 +757,8 @@ async def given_control_surface_is_initialized(
             await send_pings_task
 
             # Another brief delay to make sure the control surface is responsive (there are intermittent
-            # issues if we don't add this delay).
-            await asyncio.sleep(1.0)
+            # issues if we don't add this).
+            await asyncio.sleep(RESPONSIVENESS_DELAY)
 
     await run(device_state)
 
@@ -792,7 +806,7 @@ def cc_action(
 ):
     handlers: Dict[str, Callable[[int, mido.ports.BaseOutput], Any]] = {
         "press": partial(action_press, duration=0.05),
-        "long-press": partial(action_press, duration=0.6),
+        "long-press": partial(action_press, duration=LONG_PRESS_DELAY),
         "hold": action_hold,
         "release": action_release,
     }
@@ -807,11 +821,18 @@ def stabilize_after_cc_action(
     device_state: DeviceState,
     duration: float = STABILITY_DURATION,
 ):
-    # Add a pause before..
+    # Add a pause before.
     loop.run_until_complete(asyncio.sleep(duration))
-    # ...wait for stability...
-    loop.run_until_complete(device_state.wait_until_stable(duration=duration))
-    # ...and a pause after for good measure.
+
+    # Wait for stability. Allow display updates, in case the display is scrolling faster
+    # than the stability time.
+    categories = list(DeviceState.UpdateCategory)
+    categories.remove(DeviceState.UpdateCategory.display)
+    loop.run_until_complete(
+        device_state.wait_until_stable(duration=duration, categories=categories)
+    )
+
+    # Add a pause after for good measure.
     loop.run_until_complete(asyncio.sleep(duration))
 
 
@@ -878,7 +899,7 @@ async def when_wait_for_popup():
 @when(parsers.parse("I wait to trigger a long-press"))
 @sync
 async def when_wait_for_long_press():
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(LONG_PRESS_DELAY)
 
 
 # Parameters in the parser breaks `@sync` currently.
@@ -939,7 +960,20 @@ def should_be_colors(start: int, end: int, color: str, device_state: DeviceState
 
 
 @then(parsers.parse('the display should be "{text}"'))
-def should_be_text(text: str, device_state: DeviceState):
+def should_be_text(
+    text: str,
+    device_state: DeviceState,
+    loop: asyncio.AbstractEventLoop,
+):
+    # Wait for one tick of stability, to make sure we're not in the middle of a partial
+    # display update during a scroll. If the display is already stable, this will return
+    # immediately.
+    loop.run_until_complete(
+        device_state.wait_until_stable(
+            duration=0.1, categories=[DeviceState.UpdateCategory.display]
+        )
+    )
+
     assert device_state.display_text.rstrip() == text
 
 
