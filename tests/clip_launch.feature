@@ -23,7 +23,7 @@ Feature: Clip launch grid
     # name.
     And I press nav right
     And I press nav left
-    Then the display should be "1-MI"
+    Then the display should be scrolling "1-MIDI"
 
     When I press key 0
     Then the mode select screen should be active

@@ -983,6 +983,11 @@ def should_be_text(
     assert device_state.display_text.rstrip() == text
 
 
+@then(parsers.parse('the display should be scrolling "{text}"'))
+def should_be_scrolling_text(text: str, device_state: DeviceState):
+    assert device_state.display_text in text
+
+
 @then(parsers.parse("the mode select screen should be active"))
 def should_be_mode_select(device_state: DeviceState):
     assert device_state.display_text in (" __ ", "__  ", "_  _", "  __")
