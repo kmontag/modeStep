@@ -401,7 +401,7 @@ class MappingsFactory:
             # disconnect/reconnect events, since we pass through _standalone_init mode
             # in that case.
             CallFunctionMode(on_exit_fn=clear_send_caches),
-            # Flush accumulated MIDI data before beginning the transittion to standalone
+            # Flush accumulated MIDI data before beginning the transition to standalone
             # mode.
             CallFunctionMode(on_enter_fn=flush),
             # Set the program attribute before actually switching into standalone mode,
