@@ -257,7 +257,7 @@ buttons on the mode select screen:
 # user.py
 from .control_surface.configuration import Configuration
 
-configuration = new Configuration(
+configuration = Configuration(
   # Map Mode Select button 5 to setlist programs 1/2 on short/long press.
   override_modes={5: ("standalone_1", "standalone_2")}
 )
