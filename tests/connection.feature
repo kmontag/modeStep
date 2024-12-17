@@ -75,7 +75,6 @@ Feature: Device connection/disconnection events
     And light 5 should be solid red
     And light 0 should be solid green
 
-  @now
   Scenario: Opening other sets
     Given the SS2 is connected
     And the default set is open

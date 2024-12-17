@@ -5,7 +5,6 @@ import functools
 import importlib.machinery
 import importlib.util
 import os
-import queue
 import time
 import webbrowser
 from contextlib import ExitStack, asynccontextmanager
@@ -23,29 +22,25 @@ from typing import (
     Coroutine,
     Dict,
     Generator,
-    Generic,
     List,
     Optional,
     ParamSpec,
-    Protocol,
     Sequence,
     Tuple,
     TypeVar,
     Union,
-    overload,
 )
 
 import janus
 import mido
-from pytest import FixtureRequest, fixture, mark
+from pytest import fixture
 from pytest_bdd import given, parsers, then, when
 from pytest_bdd.parser import Feature, Step
-from pytest_bdd.utils import get_required_args
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 from typeguard import typechecked
-from typing_extensions import Never, TypeAlias
+from typing_extensions import Never
 
 if TYPE_CHECKING:
     # The type checker sees packages in the project root.
@@ -781,7 +776,7 @@ def matches_sysex(
         return False
     data = message_attrs["data"]
     # Strip the F0/F7 at the start/end of the byte list.
-    return all(x == y for x, y in zip(data, sysex_bytes[1:-1]))
+    return all(x == y for x, y in zip(data, sysex_bytes[1:-1], strict=True))
 
 
 # Cheap thrills - relay the test port to the physical device for visual feedback during

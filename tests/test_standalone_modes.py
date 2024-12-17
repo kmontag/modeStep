@@ -1,6 +1,6 @@
 import asyncio
-from contextlib import asynccontextmanager, contextmanager
-from typing import AsyncGenerator, Collection, Generator, Optional, Tuple, Union
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Collection, Tuple, Union
 
 import janus
 import mido
