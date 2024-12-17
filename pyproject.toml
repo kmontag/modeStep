@@ -42,6 +42,9 @@ ruff = "^0.8.0"
 # Used to generate images for the README.
 svgwrite = "^1.4.2"
 
+# Runtime typechecking, used for validating test method arguments.
+typeguard = "^4.4.1"
+
 # Backport post-python3.7 typing extensions. This can't be imported at runtime, but can
 # be used in .pyi files or with the TYPE_CHECKING variable.
 typing-extensions = "^4.7.0"

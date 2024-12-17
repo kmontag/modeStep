@@ -15,6 +15,7 @@ from conftest import (
     sysex,
 )
 from pytest_bdd import parsers, scenarios, then, when
+from typeguard import typechecked
 from typing_extensions import Never, TypeAlias
 
 # Standalone background program configured in the standalone Live set.
@@ -59,6 +60,7 @@ async def _get_next_message(
 
 @when("I hold the standalone exit button")
 @sync
+@typechecked
 async def when_hold_standalone_exit(
     device: Device,
 ):
@@ -71,6 +73,7 @@ async def when_hold_standalone_exit(
     )
 )
 @sync
+@typechecked
 async def should_enter_standalone_program(
     key_number: int, program: int, device: Device, device_state: DeviceState
 ):
@@ -138,6 +141,7 @@ async def should_enter_standalone_program(
 
 
 @then("the standalone background program should be active")
+@typechecked
 def should_have_standalone_background_program_active(device_state: DeviceState):
     assert (
         device_state.standalone_program == BACKGROUND_PROGRAM
@@ -150,6 +154,7 @@ def should_have_standalone_background_program_active(device_state: DeviceState):
     )
 )
 @sync
+@typechecked
 async def should_switch_directly_to_standalone_program(
     program: int,
     device: Device,
@@ -174,6 +179,7 @@ async def should_switch_directly_to_standalone_program(
 
 @then("releasing the standalone exit button should enter hosted mode")
 @sync
+@typechecked
 async def should_enter_hosted_mode(
     device: Device,
     device_state: DeviceState,

@@ -44,6 +44,7 @@ from pytest_bdd.utils import get_required_args
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+from typeguard import typechecked
 from typing_extensions import Never, TypeAlias
 
 if TYPE_CHECKING:
@@ -131,6 +132,7 @@ assert len(sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS) == NUM_STANDALONE_TOGGLE_ME
 
 
 # Error handling.
+@typechecked
 def pytest_bdd_step_error(step: Step, feature: Feature, step_func_args: Dict[str, Any]):
     console = Console()
     console.print(
@@ -141,6 +143,7 @@ def pytest_bdd_step_error(step: Step, feature: Feature, step_func_args: Dict[str
         device_state.print()
 
 
+@typechecked
 def pytest_bdd_after_step(step: Step, feature: Feature, step_func_args: Dict[str, Any]):
     if is_debug:
         console = Console()
@@ -746,7 +749,8 @@ def matches_sysex(
 # Cheap thrills - relay the test port to the physical device for visual feedback during
 # tests, if available.
 @fixture
-def relay_port() -> Generator[Optional[mido.ports.BaseOutput], Never, None]:
+@typechecked
+def relay_port() -> Generator[Optional[mido.ports.BaseOutput], None, None]:
     port_name = "SoftStep Control Surface"
     with ExitStack() as stack:
         relay_port: Optional[mido.ports.BaseOutput] = None
@@ -758,9 +762,10 @@ def relay_port() -> Generator[Optional[mido.ports.BaseOutput], Never, None]:
 
 
 @fixture
+@typechecked
 async def device(
     relay_port: mido.ports.BaseOutput,
-) -> AsyncGenerator[Device, Never]:
+) -> AsyncGenerator[Device, None]:
     async with Device(relay_ports=[relay_port]) as device:
         yield device
 
@@ -768,6 +773,7 @@ async def device(
 # After setting up the MIDI message queue, create a device state emulator and start
 # parsing incoming MIDI messages.
 @fixture
+@typechecked
 def device_state(
     device: Device,
 ) -> DeviceState:
@@ -776,7 +782,7 @@ def device_state(
 
 # Wait to receive an identity request from Live, then send a response back.
 @fixture
-@sync
+@typechecked
 async def device_identified(
     device: Device,
 ) -> bool:
@@ -871,12 +877,14 @@ async def stabilize_after_cc_action(
 
 @given(parsers.parse("the SS2 is connected"))
 @when(parsers.parse("I connect the SS2"))
+@typechecked
 def given_device_is_connected(device: Device):
     device.connect()
 
 
 @given(parsers.parse("the {set_name} set is open"))
 @when(parsers.parse("I open the {set_name} set"))
+@typechecked
 def given_set_is_open(set_name: str):
     _open_live_set(set_name)
 
@@ -885,6 +893,7 @@ def given_set_is_open(set_name: str):
 @given("the SS2 is initialized")
 @when("I wait for the SS2 to be initialized")
 @sync
+@typechecked
 async def given_control_surface_is_initialized(
     device_identified: bool,
     device: Device,
@@ -930,12 +939,14 @@ async def given_control_surface_is_initialized(
 
 
 @when(parsers.parse("I disconnect the SS2"))
+@typechecked
 def when_disconnect(device: Device):
     device.disconnect()
 
 
 @when(parsers.parse("I {action} key {key_number:d}"))
 @sync
+@typechecked
 async def when_key_action(
     key_number: int,
     action: str,
@@ -951,6 +962,7 @@ async def when_key_action(
 # long-press.
 @when(parsers.parse("I {action} key {key_number:d} without waiting"))
 @sync
+@typechecked
 async def when_key_action_without_waiting(
     key_number: int,
     action: str,
@@ -962,6 +974,7 @@ async def when_key_action_without_waiting(
 
 @when(parsers.parse("I {action} key {key_number:d} {direction:w}"))
 @sync
+@typechecked
 async def when_directional_action(
     key_number: int,
     action: str,
@@ -975,6 +988,7 @@ async def when_directional_action(
 
 @when(parsers.parse("I {action} nav {direction:w}"))
 @sync
+@typechecked
 async def when_nav_action(
     action: str,
     direction: str,
@@ -987,12 +1001,14 @@ async def when_nav_action(
 
 @when(parsers.parse("I wait for the popup to clear"))
 @sync
+@typechecked
 async def when_wait_for_popup():
     await asyncio.sleep(0.8)
 
 
 @when(parsers.parse("I wait to trigger a long-press"))
 @sync
+@typechecked
 async def when_wait_for_long_press():
     await asyncio.sleep(LONG_PRESS_DELAY)
 
@@ -1000,6 +1016,7 @@ async def when_wait_for_long_press():
 # Parameters in the parser breaks `@sync` currently.
 @when(parsers.parse("I wait for {delay:f}s"))
 @sync
+@typechecked
 async def when_wait(delay: float):
     await asyncio.sleep(delay)
 
