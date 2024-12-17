@@ -221,9 +221,9 @@ class ScrollingNotificationView(view.NotificationView):
         ) -> Optional[ScrollingNotificationData]:
             # Original signal is the result of applying the notification's factory
             # method.
-            orig_notification_data: Optional[
-                Union[str, NotificationData]
-            ] = orig_notification_signal(state, event)
+            orig_notification_data: Optional[Union[str, NotificationData]] = (
+                orig_notification_signal(state, event)
+            )
 
             if orig_notification_data is not None:
                 # logger.info(f"got notification: {orig_notification_data}")

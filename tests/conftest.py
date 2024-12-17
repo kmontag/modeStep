@@ -145,15 +145,14 @@ def pytest_bdd_after_step(step: Step, feature: Feature, step_func_args: Dict[str
 class MessageListener(Protocol):
     # The message or the exception can be present, but not both.
     @overload
-    def __call__(self, msg: mido.Message, exc: None) -> Any:
-        ...
+    def __call__(self, msg: mido.Message, exc: None) -> Any: ...
 
     @overload
-    def __call__(self, msg: None, exc: Exception) -> Any:
-        ...
+    def __call__(self, msg: None, exc: Exception) -> Any: ...
 
-    def __call__(self, msg: Optional[mido.Message], exc: Optional[Exception]) -> Any:
-        ...
+    def __call__(
+        self, msg: Optional[mido.Message], exc: Optional[Exception]
+    ) -> Any: ...
 
 
 def guard_message_exceptions(

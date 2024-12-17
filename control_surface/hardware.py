@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Optional, Union
+from typing import Callable, Optional, Union
 
 from ableton.v2.control_surface.control.sysex import ColorSysexControl
 from ableton.v3.base import depends
