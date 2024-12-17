@@ -1,6 +1,12 @@
 Feature: Standalone modes
   Background:
-    Given the standalone set is open
+    Given the SS2 is connected
+    And the standalone set is open
+
+  Scenario: Setting the standalone background mode
+    Given the SS2 is initialized
+    Then the SS2 should be in hosted mode
+    And the standalone background program should be active
 
   Scenario: Switching into and out of standalone modes
     Given the SS2 is initialized
@@ -19,7 +25,7 @@ Feature: Standalone modes
     And the SS2 should be in standalone mode
 
     # Go back to mode select.
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     Then releasing the standalone exit button should enter hosted mode
     # Sanity check.
     And the SS2 should be in hosted mode
@@ -35,7 +41,7 @@ Feature: Standalone modes
     And releasing key 0 should enter standalone program 1
 
     # Quick-switch back to the main mode.
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     And I wait to trigger a long-press
     Then releasing the standalone exit button should enter hosted mode
     And the display should be "Prss"
@@ -50,7 +56,7 @@ Feature: Standalone modes
     And releasing key 5 should enter standalone program 2
 
     # Go back and select the primary standalone mode.
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     Then releasing the standalone exit button should enter hosted mode
     And the mode select screen should be active
 
@@ -58,16 +64,16 @@ Feature: Standalone modes
     Then releasing key 5 should enter standalone program 1
 
     # Switch directly between the standalone modes.
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     And I wait to trigger a long-press
     Then releasing the standalone exit button should switch directly to standalone program 2
 
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     And I wait to trigger a long-press
     Then releasing the standalone exit button should switch directly to standalone program 1
 
     # Go back to a hosted mode and quick-switch again.
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     Then releasing the standalone exit button should enter hosted mode
     And the mode select screen should be active
 
@@ -79,7 +85,7 @@ Feature: Standalone modes
     Then light 0 should be fast-blinking green
     And releasing key 0 should enter standalone program 1
 
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     And I wait to trigger a long-press
     Then releasing the standalone exit button should enter hosted mode
     And the display should be "Incr"
@@ -90,7 +96,7 @@ Feature: Standalone modes
     And I wait to trigger a long-press
     Then releasing key 0 should enter standalone program 1
 
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     Then releasing the standalone exit button should enter hosted mode
     And the mode select screen should be active
 
@@ -98,11 +104,11 @@ Feature: Standalone modes
     And I wait to trigger a long-press
     Then releasing key 5 should enter standalone program 2
 
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     And I wait to trigger a long-press
     Then releasing the standalone exit button should switch directly to standalone program 1
 
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     Then releasing the standalone exit button should enter hosted mode
     And the mode select screen should be active
 
@@ -131,7 +137,7 @@ Feature: Standalone modes
     Then light 4 should be fast-blinking green
     And releasing key 4 should enter standalone program 3
 
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     Then releasing the standalone exit button should enter hosted mode
     And the mode select screen should be active
 
@@ -144,6 +150,6 @@ Feature: Standalone modes
     When I hold key 3 without waiting
     Then releasing key 3 should enter standalone program 0
 
-    When I hold the standalone exit button
+    When I hold the standalone exit button without waiting
     Then releasing the standalone exit button should enter hosted mode
     And the mode select screen should be active

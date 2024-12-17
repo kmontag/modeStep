@@ -1,10 +1,9 @@
 import logging
-from typing import Any, Callable, Optional, Union
+from typing import Callable, Optional, Union
 
 from ableton.v2.control_surface.control.sysex import ColorSysexControl
 from ableton.v3.base import depends
 from ableton.v3.control_surface.component import Component
-from ableton.v3.control_surface.controls import ButtonControl
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +31,6 @@ class HardwareComponent(Component):
     backlight_sysex: ColorSysexControl.State = NullableColorSysexControl(color=None)  # type: ignore
     standalone_sysex: ColorSysexControl.State = ColorSysexControl(color=False)  # type: ignore
 
-    ping_button: Any = ButtonControl()
-
     @depends(send_midi=None)
     def __init__(
         self,
@@ -49,10 +46,10 @@ class HardwareComponent(Component):
         # The program change to send when switching into standalone mode.
         self._standalone_program: Optional[int] = None
 
-        # Initial values for device properties - these will get set externally when
-        # actually setting up this component.
-        self._backlight: Optional[bool] = None  # None for unmanaged.
-        self._standalone: bool = False
+        # Initial values for device properties. None indicates an unmanaged/unknown
+        # property.
+        self._backlight: Optional[bool] = None
+        self._standalone: Optional[bool] = None
 
     @property
     def backlight(self) -> Optional[bool]:
@@ -64,11 +61,11 @@ class HardwareComponent(Component):
         self._update_backlight()
 
     @property
-    def standalone(self):
+    def standalone(self) -> Optional[bool]:
         return self._standalone
 
     @standalone.setter
-    def standalone(self, standalone: bool):
+    def standalone(self, standalone: Optional[bool]):
         self._standalone = standalone
         self._update_standalone()
 
@@ -86,22 +83,17 @@ class HardwareComponent(Component):
         self._standalone_program = standalone_program
         self._update_standalone_program()
 
-    @ping_button.pressed
-    def ping_input(self, _):
-        logger.info("ponging ping")
-        self.ping_button.control_element.send_value(True)
-
     def update(self):
         super().update()
         self._update_standalone()
         self._update_backlight()
 
     def _update_backlight(self):
-        if self.is_enabled():
+        if self.is_enabled() and self.backlight is not None:
             self.backlight_sysex.color = self.backlight
 
     def _update_standalone(self):
-        if self.is_enabled():
+        if self.is_enabled() and self.standalone is not None:
             self.standalone_sysex.color = self._standalone
             self._update_standalone_program()
 

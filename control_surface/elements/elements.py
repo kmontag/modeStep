@@ -602,14 +602,14 @@ class Elements(ElementsBase):
         self.display = DisplayElement()
 
     def _create_sysex(self):
-        # Sysex toggles for device functions.
+        # Sysex toggles for device functions. Avoid setting default values for these, so
+        # that messages don't get triggered until we really want them to be.
         self.add_element(
             "backlight_sysex",
             SysexToggleElement,
             on_messages=[sysex.SYSEX_BACKLIGHT_ON_REQUEST],
             off_messages=[sysex.SYSEX_BACKLIGHT_OFF_REQUEST],
             optimized=True,
-            default_value=False,
         )
 
         self.add_element(
@@ -618,7 +618,6 @@ class Elements(ElementsBase):
             on_messages=sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS,
             off_messages=sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS,
             optimized=True,
-            default_value=True,
         )
 
         # Sysex input used by the test mode to check whether the control surface is

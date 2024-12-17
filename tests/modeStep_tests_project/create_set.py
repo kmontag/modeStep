@@ -25,6 +25,10 @@ else:
 
 configurations: Dict[str, Configuration] = {
     "default": Configuration(),
+    "alt_initial_mode": Configuration(
+        initial_mode="utility",
+        initial_last_mode="device_parameters_xy",
+    ),
     "backlight": Configuration(backlight=True),
     "overrides": Configuration(
         override_elements={

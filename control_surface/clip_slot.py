@@ -20,9 +20,9 @@ class ClipSlotComponent(ClipSlotComponentBase):
 
         assert configuration
 
-        self._launch_pressed_delayed_action: Optional[
-            ClipSlotAction
-        ] = configuration.clip_long_press_action
+        self._launch_pressed_delayed_action: Optional[ClipSlotAction] = (
+            configuration.clip_long_press_action
+        )
 
         assert self.__on_launch_button_pressed_delayed
         self.__on_launch_button_pressed_delayed.subject = self.launch_button

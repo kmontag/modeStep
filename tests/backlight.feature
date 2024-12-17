@@ -1,6 +1,7 @@
 Feature: Backlight management
   Scenario Outline: Toggling the backlight when it is unconfigured
-    Given the <set_name> set is open
+    Given the SS2 is connected
+    And the <set_name> set is open
     And the SS2 is initialized
 
     Then the backlight should be <initial_state>

@@ -4,7 +4,7 @@ POETRY := $(shell command -v poetry 2> /dev/null)
 # he result so that we can use this as a target.
 SYSTEM_MIDI_REMOTE_SCRIPTS_DIR := $(shell ls -d /Applications/Ableton\ Live\ 12\ *.app/Contents/App-Resources/MIDI\ Remote\ Scripts 2> /dev/null | head -n 1 | sed 's/ /\\ /g')
 
-TEST_PROJECT_SET_NAMES := backlight default overrides standalone wide_clip_launch
+TEST_PROJECT_SET_NAMES := alt_initial_mode backlight default overrides standalone wide_clip_launch
 TEST_PROJECT_DIR := tests/modeStep_tests_project
 TEST_PROJECT_SETS := $(addprefix $(TEST_PROJECT_DIR)/, $(addsuffix .als, $(TEST_PROJECT_SET_NAMES)))
 
@@ -30,7 +30,7 @@ check: .make.install __ext__/AbletonLive12_MIDIRemoteScripts/README.md
 
 .PHONY: test
 test: .make.install $(TEST_PROJECT_SETS)
-	$(POETRY) run pytest
+	$(POETRY) run pytest tests/
 
 .PHONY: img
 img: .make.install
@@ -52,7 +52,7 @@ $(TEST_PROJECT_DIR)/%.als: .make.install $(TEST_PROJECT_DIR)/create_set.py
 	$(POETRY) run python $(TEST_PROJECT_DIR)/create_set.py $*
 	touch $@
 
-.make.install: pyproject.toml poetry.lock
+.make.install: poetry.lock
 	@if [ -z $(POETRY) ]; then echo "Poetry could not be found. See https://python-poetry.org/docs/"; exit 2; fi
 	$(POETRY) install
 	touch $@

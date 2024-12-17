@@ -114,7 +114,6 @@ class ProcessedSliderElement(LightedTransitionalProcessedValueElement, Renderabl
 
 
 class LatchableSliderElement(ProcessedSliderElement):
-
     """Generic slider control for immitating SoftStep's "live" sources, e.g. pressure or
     XY position. Latching can optionally be enabled.
     """

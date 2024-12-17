@@ -68,7 +68,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.11
       - name: Semantic Release
         uses: python-semantic-release/python-semantic-release@v9.8.6
         with:

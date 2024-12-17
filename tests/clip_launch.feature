@@ -1,6 +1,7 @@
 Feature: Clip launch grid
   Scenario: Using a 1x8 clip launch grid
-    Given the wide_clip_launch set is open
+    Given the SS2 is connected
+    And the wide_clip_launch set is open
     And the SS2 is initialized
 
     # Make sure track 1 is selected, to avoid any inconsistencies if
@@ -23,7 +24,7 @@ Feature: Clip launch grid
     # name.
     And I press nav right
     And I press nav left
-    Then the display should be "1-MI"
+    Then the display should be scrolling "1-MIDI"
 
     When I press key 0
     Then the mode select screen should be active

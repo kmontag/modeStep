@@ -1,6 +1,7 @@
 Feature: Overrides from config
   Background:
-    Given the overrides set is open
+    Given the SS2 is connected
+    And the overrides set is open
     And the SS2 is initialized
 
   Scenario: Element overrides
