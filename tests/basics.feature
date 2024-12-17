@@ -1,6 +1,7 @@
 Feature: Basic usage
   Background:
-    Given the default set is open
+    Given the SS2 is connected
+    And the default set is open
     And the SS2 is initialized
 
   Scenario: Putting the device into hosted mode

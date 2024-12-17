@@ -1,6 +1,7 @@
 Feature: Standalone modes
   Background:
-    Given the standalone set is open
+    Given the SS2 is connected
+    And the standalone set is open
 
   Scenario: Setting the standalone background mode
     Given the SS2 is initialized

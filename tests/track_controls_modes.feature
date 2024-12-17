@@ -1,6 +1,7 @@
 Feature: Track controls modes
   Background:
-    Given the default set is open
+    Given the SS2 is connected
+    And the default set is open
     And the SS2 is initialized
 
   Scenario: Volume buttons

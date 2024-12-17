@@ -18,6 +18,9 @@ future = "0.18.3"
 
 # Dependencies for testing and build tasks. These won't be available at runtime in Live.
 [tool.poetry.group.dev.dependencies]
+# Thread-safe asyncio-aware queue, used to process MIDI messages in tests.
+janus = "^2.0.0"
+
 # MIDI input/output for tests.
 mido = "^1.3.2"
 python-rtmidi = "^1.5.2"
@@ -44,9 +47,8 @@ svgwrite = "^1.4.2"
 typing-extensions = "^4.7.0"
 
 [tool.pyright]
-# Live's built-in python version as of v12.1 is 3.11.6, but for now we also want checks
-# to catch potential errors in 12.0.
-pythonVersion = "3.7"
+# Live's built-in python version as of v12.1 is 3.11.6.
+pythonVersion = "3.11"
 
 exclude = ["**/__pycache__", ".git", ".venv", "__ext__/"]
 extraPaths = ["./__ext__/AbletonLive12_MIDIRemoteScripts"]
@@ -59,7 +61,7 @@ venvPath = "."
 venv = ".venv"
 
 [tool.ruff]
-target-version = "py37"
+target-version = "py311"
 # Exclude generated libs.
 extend-exclude = ["__ext__"]
 

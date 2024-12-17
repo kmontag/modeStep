@@ -1,14 +1,17 @@
 import asyncio
-from contextlib import contextmanager
-from typing import Collection, Generator, Optional, Tuple, Union
+from contextlib import asynccontextmanager, contextmanager
+from typing import AsyncGenerator, Collection, Generator, Optional, Tuple, Union
 
+import janus
 import mido
 from conftest import (
+    Device,
     DeviceState,
     cc_action,
     get_cc_for_key,
     matches_sysex,
     stabilize_after_cc_action,
+    sync,
     sysex,
 )
 from pytest_bdd import parsers, scenarios, then, when
@@ -37,44 +40,29 @@ def _dequeue_sysex(
 MessageOrException: TypeAlias = Union[Tuple[mido.Message, None], Tuple[None, Exception]]
 
 
-@contextmanager
-def _message_queue(
-    device_state: DeviceState,
-) -> Generator[
-    asyncio.Queue[MessageOrException],
+@asynccontextmanager
+async def _message_queue(
+    device: Device,
+) -> AsyncGenerator[
+    janus.AsyncQueue[mido.Message],
     Never,
-    None,
 ]:
-    queue: asyncio.Queue[MessageOrException] = asyncio.Queue()
-
-    def on_message(msg: Optional[mido.Message], exc: Optional[Exception]):
-        if exc is not None:
-            assert msg is None
-            queue.put_nowait((None, exc))
-        else:
-            assert msg is not None
-            queue.put_nowait((msg, None))
-
-    remove_listener = device_state.add_message_listener(on_message)
-    yield queue
-    remove_listener()
+    async with device.incoming_messages() as queue:
+        yield queue
 
 
 async def _get_next_message(
-    message_queue: asyncio.Queue[MessageOrException],
+    message_queue: janus.AsyncQueue[mido.Message], timeout: float = 5.0
 ) -> mido.Message:
-    message, exc = await message_queue.get()
-    if exc is not None:
-        raise exc
-    assert message is not None
-    return message
+    return await asyncio.wait_for(message_queue.get(), timeout=timeout)
 
 
 @when("I hold the standalone exit button")
-def when_hold_standalone_exit(
-    ioport: mido.ports.BaseOutput, loop: asyncio.AbstractEventLoop
+@sync
+async def when_hold_standalone_exit(
+    device: Device,
 ):
-    cc_action(STANDALONE_EXIT_CC, "hold", port=ioport, loop=loop)
+    await cc_action(STANDALONE_EXIT_CC, "hold", device)
 
 
 @then(
@@ -82,12 +70,9 @@ def when_hold_standalone_exit(
         "releasing key {key_number:d} should enter standalone program {program:d}"
     )
 )
-def should_enter_standalone_program(
-    key_number: int,
-    program: int,
-    loop: asyncio.AbstractEventLoop,
-    ioport: mido.ports.BaseOutput,
-    device_state: DeviceState,
+@sync
+async def should_enter_standalone_program(
+    key_number: int, program: int, device: Device, device_state: DeviceState
 ):
     # Make sure the device is fully out of standalone mode.
     assert all([t is False for t in device_state.standalone_toggles])
@@ -97,11 +82,11 @@ def should_enter_standalone_program(
     remaining_standalone_requests = sysex.SYSEX_STANDALONE_MODE_ON_REQUESTS
     received_main_program = False
 
-    with _message_queue(device_state) as queue:
-        cc_action(get_cc_for_key(key_number), "release", port=ioport, loop=loop)
+    async with _message_queue(device) as queue:
+        await cc_action(get_cc_for_key(key_number), "release", device)
         num_initial_ccs: int = 0
         while not received_main_program:
-            message = loop.run_until_complete(_get_next_message(queue))
+            message = await _get_next_message(queue)
             message_attrs = message.dict()
 
             if message_attrs["type"] == "sysex":
@@ -146,7 +131,7 @@ def should_enter_standalone_program(
         )
 
         # Wait a little while to make sure no additional CCs or other messages get sent.
-        loop.run_until_complete(asyncio.sleep(0.5))
+        await asyncio.sleep(0.5)
         assert (
             queue.empty()
         ), f"Received additional messages after standalone transition:\n{queue})"
@@ -164,41 +149,43 @@ def should_have_standalone_background_program_active(device_state: DeviceState):
         "releasing the standalone exit button should switch directly to standalone program {program:d}"
     )
 )
-def should_switch_directly_to_standalone_program(
+@sync
+async def should_switch_directly_to_standalone_program(
     program: int,
+    device: Device,
     device_state: DeviceState,
-    loop: asyncio.AbstractEventLoop,
-    ioport: mido.ports.BaseOutput,
 ):
     # Make sure we're currently in standalone mode.
     assert all(device_state.standalone_toggles)
-    with _message_queue(device_state) as queue:
-        cc_action(STANDALONE_EXIT_CC, "release", port=ioport, loop=loop)
+    async with _message_queue(device) as queue:
+        await cc_action(STANDALONE_EXIT_CC, "release", device)
         # Make sure we get one message for the program change.
-        message = loop.run_until_complete(_get_next_message(queue))
+        message = await _get_next_message(queue)
         message_attrs = message.dict()
         assert message_attrs["type"] == "program_change"
         assert message_attrs["program"] == program
 
         # Wait a little while, and make sure we haven't gotten any other messages.
-        loop.run_until_complete(asyncio.sleep(0.5))
-        assert queue.empty()
+        await asyncio.sleep(0.5)
+        assert (
+            queue.empty()
+        ), f"Received additional messages after direct standalone transition:\n{queue})"
 
 
 @then("releasing the standalone exit button should enter hosted mode")
-def should_enter_hosted_mode(
-    loop: asyncio.AbstractEventLoop,
-    ioport: mido.ports.BaseOutput,
+@sync
+async def should_enter_hosted_mode(
+    device: Device,
     device_state: DeviceState,
 ):
     # Make sure we're fully in standalone mode to begin.
     assert all(device_state.standalone_toggles)
-    with _message_queue(device_state) as queue:
-        cc_action(STANDALONE_EXIT_CC, "release", port=ioport, loop=loop)
-        stabilize_after_cc_action(loop=loop, device_state=device_state)
+    async with _message_queue(device) as queue:
+        await cc_action(STANDALONE_EXIT_CC, "release", device)
+        await stabilize_after_cc_action(device)
 
         # First message needs to be the background program.
-        message = loop.run_until_complete(_get_next_message(queue))
+        message = await _get_next_message(queue)
         message_attrs = message.dict()
         assert (
             message_attrs["type"] == "program_change"
@@ -208,7 +195,7 @@ def should_enter_hosted_mode(
         # Now make sure we get the right sysex messages.
         remaining_hosted_requests = sysex.SYSEX_STANDALONE_MODE_OFF_REQUESTS
         while any(remaining_hosted_requests):
-            message = loop.run_until_complete(_get_next_message(queue))
+            message = await _get_next_message(queue)
             message_attrs = message.dict()
 
             assert (
@@ -226,14 +213,8 @@ def should_enter_hosted_mode(
         )
 
         # All additional messages to this point should be CCs.
-        might_have_more_messages = True
-        while might_have_more_messages:
-            try:
-                message, exception = queue.get_nowait()
-                assert exception is None
-                assert message is not None
-                assert (
-                    message.is_cc()
-                ), f"Got non-CC message after switching to hosted mode: {message}"
-            except asyncio.QueueEmpty:
-                might_have_more_messages = False
+        while not queue.empty():
+            message = queue.get_nowait()
+            assert (
+                message.is_cc()
+            ), f"Got non-CC message after switching to hosted mode: {message}"

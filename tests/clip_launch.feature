@@ -1,6 +1,7 @@
 Feature: Clip launch grid
   Scenario: Using a 1x8 clip launch grid
-    Given the wide_clip_launch set is open
+    Given the SS2 is connected
+    And the wide_clip_launch set is open
     And the SS2 is initialized
 
     # Make sure track 1 is selected, to avoid any inconsistencies if
