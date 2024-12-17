@@ -5,6 +5,7 @@ from typing import AsyncGenerator, Collection, Tuple, Union
 import janus
 import mido
 from conftest import (
+    STANDALONE_EXIT_CC,
     Device,
     DeviceState,
     cc_action,
@@ -20,9 +21,6 @@ from typing_extensions import Never, TypeAlias
 
 # Standalone background program configured in the standalone Live set.
 BACKGROUND_PROGRAM = 10
-
-# Exit button in standalone modes.
-STANDALONE_EXIT_CC = 80
 
 scenarios("standalone_modes.feature")
 
@@ -56,15 +54,6 @@ async def _get_next_message(
     message_queue: janus.AsyncQueue[mido.Message], timeout: float = 5.0
 ) -> mido.Message:
     return await asyncio.wait_for(message_queue.get(), timeout=timeout)
-
-
-@when("I hold the standalone exit button")
-@sync
-@typechecked
-async def when_hold_standalone_exit(
-    device: Device,
-):
-    await cc_action(STANDALONE_EXIT_CC, "hold", device)
 
 
 @then(

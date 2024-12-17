@@ -98,6 +98,9 @@ CLEAR_CC = 0
 DISPLAY_BASE_CC = 50
 DISPLAY_WIDTH = 4
 
+# Exit button in standalone modes.
+STANDALONE_EXIT_CC = 80
+
 MIDI_CHANNEL = 0
 
 # The number of seconds to wait after the controller responds to a ping before
@@ -191,13 +194,7 @@ class DeviceState:
 
     # Reset all properties to unknown/unmanaged.
     def reset(self) -> None:
-        num_keys = hardware.NUM_ROWS * hardware.NUM_COLS
-
-        self._red_values = [None] * num_keys
-        self._green_values = [None] * num_keys
-        self._deprecated_led_values = [None] * NUM_DEPRECATED_LED_FIELDS
-
-        self._display_values = [None] * DISPLAY_WIDTH
+        self._reset_leds_and_display()
 
         self._standalone_toggles = [None] * NUM_STANDALONE_TOGGLE_MESSAGES
 
@@ -205,6 +202,18 @@ class DeviceState:
 
         # Most recent standalone mode program.
         self._standalone_program = None
+
+    # Reset just the LEDs and display to unknown/unmanaged. This is used when switching
+    # to standalone mode, where these values can change based on user actions
+    # (i.e. independently of CC messages being sent to the device).
+    def _reset_leds_and_display(self) -> None:
+        num_keys = hardware.NUM_ROWS * hardware.NUM_COLS
+
+        self._red_values = [None] * num_keys
+        self._green_values = [None] * num_keys
+        self._deprecated_led_values = [None] * NUM_DEPRECATED_LED_FIELDS
+
+        self._display_values = [None] * DISPLAY_WIDTH
 
     @property
     def red_values(self) -> Sequence[Optional[int]]:
@@ -385,6 +394,11 @@ class DeviceState:
                         # is now fully managed.
                         if all(t is not None for t in self._standalone_toggles):
                             self.__allow_ccs_until_managed = False
+
+                        # If we just switched to standalone mode, the LEDs and display
+                        # are no longer under our control.
+                        if all(t == True for t in self._standalone_toggles):
+                            self._reset_leds_and_display()
 
                         return DeviceState.UpdateCategory.mode
 
@@ -723,6 +737,42 @@ class Device:
                 break
             await asyncio.sleep(POLL_INTERVAL)
 
+    @guard_message_exceptions
+    async def wait_for_initialization(
+        self, require_display: bool, timeout: float = 30.0
+    ):
+        async with asyncio.timeout(timeout):
+            # Wait until the device is explicitly placed into standalone or hosted mode.
+            while any(t is None for t in self.device_state.standalone_toggles):
+                await asyncio.sleep(POLL_INTERVAL)
+
+            if require_display:
+                # Wait until something gets rendered to the display.
+                while not (self.device_state.display_text or "").strip():
+                    await asyncio.sleep(POLL_INTERVAL)
+
+            # Wait until the control surface starts responding to inputs (this can take a second
+            # or so if Live was just started).
+            received_pong = False
+
+            async def send_pings():
+                while not received_pong:
+                    self.send(
+                        mido.Message("sysex", data=sysex.SYSEX_PING_REQUEST[1:-1])
+                    )
+                    await asyncio.sleep(0.3)
+
+            send_pings_task = asyncio.create_task(send_pings())
+            await self.wait_for_ping_response()
+            received_pong = True
+
+            # Throw any exceptions.
+            await send_pings_task
+
+            # Another brief delay to make sure the control surface is responsive (there are intermittent
+            # issues if we don't add this).
+            await asyncio.sleep(RESPONSIVENESS_DELAY)
+
     # Use this object within an asyn `with` context to run the message processor in the
     # background.
     async def __aenter__(self) -> Device:
@@ -929,39 +979,20 @@ async def given_device_is_initialized(
     device_identified: bool,
     device: Device,
 ):
-    # Inner function so we can get the message exceptions guard.
-    @guard_message_exceptions
-    async def run(device: Device):
-        async with asyncio.timeout(30):
-            assert device_identified
+    assert device_identified
+    await device.wait_for_initialization(require_display=True)
 
-            # Wait until something gets rendered to the display.
-            while not (device.device_state.display_text or "").strip():
-                await asyncio.sleep(POLL_INTERVAL)
 
-            # Wait until the control surface starts responding to inputs (this can take a second
-            # or so if Live was just started).
-            received_pong = False
-
-            async def send_pings():
-                while not received_pong:
-                    device.send(
-                        mido.Message("sysex", data=sysex.SYSEX_PING_REQUEST[1:-1])
-                    )
-                    await asyncio.sleep(0.3)
-
-            send_pings_task = asyncio.create_task(send_pings())
-            await device.wait_for_ping_response()
-            received_pong = True
-
-            # Throw any exceptions.
-            await send_pings_task
-
-            # Another brief delay to make sure the control surface is responsive (there are intermittent
-            # issues if we don't add this).
-            await asyncio.sleep(RESPONSIVENESS_DELAY)
-
-    await run(device)
+@given("the SS2 is initialized in standalone mode")
+@when("I wait for the SS2 to be initialized in standalone mode")
+@sync
+@typechecked
+async def given_device_is_initialized_in_standalone_mode(
+    device_identified: bool,
+    device: Device,
+):
+    assert device_identified
+    await device.wait_for_initialization(require_display=False)
 
 
 # No-op step. This allows for optional steps when using multiple `Examples`, e.g. by
@@ -984,7 +1015,7 @@ def when_forget_state(device: Device):
     device.reset()
 
 
-@when(parsers.parse("I allow stray display updates until initialization"))
+@when(parsers.parse("I allow stray interface updates until initialization"))
 @typechecked
 def when_allow_ccs_until_managed(device_state: DeviceState):
     device_state.allow_ccs_until_managed()
@@ -1016,6 +1047,27 @@ async def when_key_action_without_waiting(
 ):
     cc = get_cc_for_key(key_number)
     await cc_action(cc, action, device)
+
+
+@when(parsers.parse("I {action} the standalone exit button"))
+@sync
+@typechecked
+async def when_standalone_exit_action(
+    action: str,
+    device: Device,
+):
+    await cc_action(STANDALONE_EXIT_CC, action, device)
+    await stabilize_after_cc_action(device)
+
+
+@when(parsers.parse("I {action} the standalone exit button without waiting"))
+@sync
+@typechecked
+async def when_standalone_exit_action_without_waiting(
+    action: str,
+    device: Device,
+):
+    await cc_action(STANDALONE_EXIT_CC, action, device)
 
 
 @when(parsers.parse("I {action} key {key_number:d} {direction:w}"))
@@ -1108,17 +1160,20 @@ def assert_matches_color(key_number: int, color: str, device_state: DeviceState)
 
 
 @then(parsers.parse("light {key_number:d} should be {color}"))
+@typechecked
 def should_be_color(key_number: int, color: str, device_state: DeviceState):
     assert_matches_color(key_number, color, device_state)
 
 
 @then(parsers.parse("lights {start:d}-{end:d} should be {color}"))
+@typechecked
 def should_be_colors(start: int, end: int, color: str, device_state: DeviceState):
     for i in range(start, end + 1):
         assert_matches_color(i, color, device_state)
 
 
 @then(parsers.parse('the display should be "{text}"'))
+@typechecked
 def should_be_text(
     text: str,
     device_state: DeviceState,
@@ -1128,36 +1183,49 @@ def should_be_text(
 
 
 @then(parsers.parse('the display should be scrolling "{text}"'))
+@typechecked
 def should_be_scrolling_text(text: str, device_state: DeviceState):
     assert device_state.display_text is not None
     assert device_state.display_text in text
 
 
 @then(parsers.parse("the mode select screen should be active"))
+@typechecked
 def should_be_mode_select(device_state: DeviceState):
     assert device_state.display_text in (" __ ", "__  ", "_  _", "  __")
 
 
 @then("the backlight should be on")
+@typechecked
 def should_be_backlight_on(device_state: DeviceState):
     assert device_state.backlight is True
 
 
 @then("the backlight should be off")
+@typechecked
 def should_be_backlight_off(device_state: DeviceState):
     assert device_state.backlight is False
 
 
 @then("the backlight should be unmanaged")
+@typechecked
 def should_be_backlight_unmanaged(device_state: DeviceState):
     assert device_state.backlight is None
 
 
 @then("the SS2 should be in standalone mode")
+@typechecked
 def should_be_standalone_mode(device_state: DeviceState):
     assert all([t is True for t in device_state.standalone_toggles])
 
 
 @then("the SS2 should be in hosted mode")
+@typechecked
 def should_be_hosted_mode(device_state: DeviceState):
     assert all([t is False for t in device_state.standalone_toggles])
+
+
+@then(parsers.parse("standalone program {standalone_program:d} should be active"))
+@typechecked
+def should_be_standalone_program(standalone_program: int, device_state: DeviceState):
+    assert device_state.standalone_program == standalone_program
