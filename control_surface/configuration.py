@@ -76,7 +76,7 @@ class Configuration(NamedTuple):
     wide_clip_launch: bool = False
 
     # Quantization settings.
-    quantize_to: Quantization = "sixtenth"
+    quantize_to: Quantization = "sixtenth"  # [sic]
     quantize_amount: float = 1.0  # 1.0 is full quantization.
 
     # Whether to scroll the session ring along with scenes/tracks.
