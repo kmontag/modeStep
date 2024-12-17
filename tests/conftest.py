@@ -930,8 +930,6 @@ async def given_device_is_initialized(
     device: Device,
 ):
     # Inner function so we can get the message exceptions guard.
-    #
-    # TODO: This whole setup can probably be reworked with pytest-asyncio.
     @guard_message_exceptions
     async def run(device: Device):
         async with asyncio.timeout(30):
