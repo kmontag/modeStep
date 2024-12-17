@@ -492,9 +492,7 @@ def guard_message_exceptions(
             assert exc is not None
             raise exc
 
-        # The type checker thinks we're on an earlier python version, so it doesn't know
-        # that TaskGroup exists.
-        async with asyncio.TaskGroup() as task_group:  # type: ignore
+        async with asyncio.TaskGroup() as task_group:
             # If this throws an exception, it will be raised and the whole group will be
             # destroyed.
             exception_task = task_group.create_task(raise_exception())
@@ -936,10 +934,7 @@ async def given_device_is_initialized(
     # TODO: This whole setup can probably be reworked with pytest-asyncio.
     @guard_message_exceptions
     async def run(device: Device):
-        # This was added in python 3.11. The type-checker is set to an earlier version for
-        # the main application, but the tests themselves run with a version where this is
-        # available.
-        async with asyncio.timeout(30):  # type: ignore
+        async with asyncio.timeout(30):
             assert device_identified
 
             # Wait until something gets rendered to the display.
