@@ -30,7 +30,7 @@ check: .make.install __ext__/AbletonLive12_MIDIRemoteScripts/README.md
 
 .PHONY: test
 test: .make.install $(TEST_PROJECT_SETS)
-	$(POETRY) run pytest
+	$(POETRY) run pytest tests/
 
 .PHONY: img
 img: .make.install
@@ -52,7 +52,7 @@ $(TEST_PROJECT_DIR)/%.als: .make.install $(TEST_PROJECT_DIR)/create_set.py
 	$(POETRY) run python $(TEST_PROJECT_DIR)/create_set.py $*
 	touch $@
 
-.make.install: pyproject.toml poetry.lock
+.make.install: poetry.lock
 	@if [ -z $(POETRY) ]; then echo "Poetry could not be found. See https://python-poetry.org/docs/"; exit 2; fi
 	$(POETRY) install
 	touch $@

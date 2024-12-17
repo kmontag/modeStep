@@ -26,15 +26,15 @@ python-rtmidi = "^1.5.2"
 pyright = "^1.1.348"
 
 # Test framework.
-pytest = "^7.1.0"
+pytest = "^8.3.4"
 pytest-asyncio = "^0.21.1"
-pytest-bdd = "^6.1.1"
+pytest-bdd = "^8.1.0"
 
 # Pretty printer for tests.
 rich = "^13.7.0"
 
 # Formatter and linter
-ruff = "^0.1.13"
+ruff = "^0.8.0"
 
 # Used to generate images for the README.
 svgwrite = "^1.4.2"
@@ -44,7 +44,8 @@ svgwrite = "^1.4.2"
 typing-extensions = "^4.7.0"
 
 [tool.pyright]
-# Live's built-in python version as of v12.0.2 is 3.7.3.
+# Live's built-in python version as of v12.1 is 3.11.6, but for now we also want checks
+# to catch potential errors in 12.0.
 pythonVersion = "3.7"
 
 exclude = ["**/__pycache__", ".git", ".venv", "__ext__/"]
@@ -56,10 +57,6 @@ reportMissingModuleSource = false
 # Set up the virtual environment.
 venvPath = "."
 venv = ".venv"
-
-[tool.pytest.ini_options]
-# Allow output.
-addopts = "--capture=no"
 
 [tool.ruff]
 target-version = "py37"

@@ -31,7 +31,7 @@ import mido
 from pytest import FixtureRequest, fixture, mark
 from pytest_bdd import given, parsers, then, when
 from pytest_bdd.parser import Feature, Step
-from pytest_bdd.utils import get_args
+from pytest_bdd.utils import get_required_args
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
@@ -543,7 +543,7 @@ class DeviceState:
 # loop fixture while still injecting other fixtures.
 def sync(*args: Callable[..., Awaitable[T]]) -> Callable[..., T]:
     [fn] = args
-    func_args = get_args(fn)
+    func_args = get_required_args(fn)
 
     # Tell pytest about the original fixtures.
     @mark.usefixtures(*func_args)
