@@ -397,7 +397,7 @@ class DeviceState:
 
                         # If we just switched to standalone mode, the LEDs and display
                         # are no longer under our control.
-                        if all(t == True for t in self._standalone_toggles):
+                        if all(t is True for t in self._standalone_toggles):
                             self._reset_leds_and_display()
 
                         return DeviceState.UpdateCategory.mode

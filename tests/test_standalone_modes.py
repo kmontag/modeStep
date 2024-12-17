@@ -15,7 +15,7 @@ from conftest import (
     sync,
     sysex,
 )
-from pytest_bdd import parsers, scenarios, then, when
+from pytest_bdd import parsers, scenarios, then
 from typeguard import typechecked
 from typing_extensions import Never, TypeAlias
 
