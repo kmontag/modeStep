@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "modeStep"
-version = "0.0.4"
+version = "0.0.5"
 description = "Ableton Live 12 control surface for the SoftStep 2"
 authors = ["Kevin Montag <kmontag@cs.stanford.edu>"]
 readme = "README.md"

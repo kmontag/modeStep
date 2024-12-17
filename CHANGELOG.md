@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## v0.0.5 (2024-12-17)
+
+### Documentation
+
+* docs: use consistent indentation in standalone user.py example ([`7293e43`](https://github.com/kmontag/modeStep/commit/7293e4301a5c5395143553af623ff71b9697cb18))
+
+* docs: fix typo in example user.py ([`cd1cfa4`](https://github.com/kmontag/modeStep/commit/cd1cfa4ea8a53eca10770ea89e89c208ec979177))
+
+### Fix
+
+* fix: improve robustness of device initialization on disconnect/reconnect (#9)
+
+- cleans up startup logic for more predictable device initialization
+- suppresses stray CCs which would otherwise be sent at startup and/or
+when switching to standalone modes
+- adds tests for disconnect/reconnect events and other device init
+scenarios
+- updates application python version to 3.11, following Live 12.1 ([`8c08b55`](https://github.com/kmontag/modeStep/commit/8c08b551c81e5267219f57a66997c60f7517eb5a))
+
 ## v0.0.4 (2024-12-11)
 
 ### Chore
