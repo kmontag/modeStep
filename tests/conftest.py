@@ -188,8 +188,11 @@ class DeviceState:
         # Most recent standalone mode program.
         self._standalone_program: Optional[int]
 
-        # Initialize all values.
+        # Initialize all state values.
         self.reset()
+
+        # Tracker for validation error suppression prior to device init.
+        self.__allow_ccs_until_managed: bool = False
 
     # Reset all properties to unknown/unmanaged.
     def reset(self) -> None:
@@ -262,8 +265,12 @@ class DeviceState:
             standalone_status = list(self.standalone_toggles)[0]
 
             if message.is_cc():
-                assert (
-                    standalone_status is False
+                assert standalone_status is False or (
+                    # Check whether we're suppressing these errors during init.
+                    #
+                    # Note that it should only be possible for this to be `True` when
+                    # the standalone status is `None`.
+                    self.__allow_ccs_until_managed
                 ), f"CC messages are only expected in hosted mode: {message}"
             elif msg_type == "program_change":
                 assert (
@@ -378,10 +385,35 @@ class DeviceState:
                 for idx, request in enumerate(requests):
                     if matches_sysex(message, request):
                         self._standalone_toggles[idx] = standalone
+
+                        # Clear the CC validation error suppression if the device mode
+                        # is now fully managed.
+                        if all(t is not None for t in self._standalone_toggles):
+                            self.__allow_ccs_until_managed = False
+
                         return DeviceState.UpdateCategory.mode
 
         # If we haven't returned by this point, the message is unrecognized.
         raise ValueError(f"Unrecognized message: {message}")
+
+    # Don't error on incoming CCs as long as the standalone/hosted mode status is
+    # unmanaged. Restore the default validation behavior once the status has been set
+    # explicitly. If the standalone/hosted mode status is already set explicitly, this
+    # is a no-op.
+    #
+    # This can be used to avoid validation errors when the device is quickly
+    # disconnected and reconnected. In such cases, Live seems to send some interface
+    # updates prior to `port_settings_changed` being fired, i.e. before it realizes that
+    # the device needs to be re-identified.
+    #
+    # Stray CCs at this stage should be harmless (as the device will be fully
+    # reinitialized once `port_settings_changed` eventually fires). At worst they could
+    # interfere with transient LED states of the initial standalone mode when the device
+    # boots up.
+    def allow_ccs_until_managed(self):
+        # Only set the variable if the state is at least partially unmanaged.
+        if any(t is None for t in self._standalone_toggles):
+            self.__allow_ccs_until_managed = True
 
     # Generate a console-printable representation of the LED states and display text.
     def _create_table(self) -> Table:
@@ -573,6 +605,12 @@ class Device:
         self._ioport.close()
         self._ioport = None
 
+        self.reset()
+
+    # Reset all state to unmanaged, and forget whether an identity request has been
+    # received. This allows waiting for the device to be re-initialized (for example
+    # when opening a new set), even if it hasn't been disconnected.
+    def reset(self):
         self.device_state.reset()
         self.__identity_request_event.clear()
 
@@ -894,7 +932,7 @@ def given_set_is_open(set_name: str):
 @when("I wait for the SS2 to be initialized")
 @sync
 @typechecked
-async def given_control_surface_is_initialized(
+async def given_device_is_initialized(
     device_identified: bool,
     device: Device,
 ):
@@ -938,10 +976,30 @@ async def given_control_surface_is_initialized(
     await run(device)
 
 
+# No-op step. This allows for optional steps when using multiple `Examples`, e.g. by
+# templatizing the step text.
+@when(parsers.parse("I do nothing"))
+@typechecked
+def when_noop():
+    pass
+
+
 @when(parsers.parse("I disconnect the SS2"))
 @typechecked
 def when_disconnect(device: Device):
     device.disconnect()
+
+
+@when(parsers.parse("I forget the SS2's state"))
+@typechecked
+def when_forget_state(device: Device):
+    device.reset()
+
+
+@when(parsers.parse("I allow stray display updates until initialization"))
+@typechecked
+def when_allow_ccs_until_managed(device_state: DeviceState):
+    device_state.allow_ccs_until_managed()
 
 
 @when(parsers.parse("I {action} key {key_number:d}"))
@@ -1078,7 +1136,7 @@ def should_be_text(
     device_state: DeviceState,
 ):
     assert device_state.display_text is not None
-    assert device_state.display_text.rstrip() == text
+    assert device_state.display_text.strip() == text
 
 
 @then(parsers.parse('the display should be scrolling "{text}"'))
