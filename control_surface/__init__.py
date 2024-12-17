@@ -363,23 +363,23 @@ class modeStep(ControlSurface):
 
     def on_identified(self, response_bytes):
         super().on_identified(response_bytes)
-        logger.info("identified SoftStep 2 device")
 
-        # Cancel any pending timeout checks.
-        if not self._identity_response_timeout_task.is_killed:
-            self._identity_response_timeout_task.kill()
-
-        # We'll reach this point on startup, as well as when MIDI ports change (due to
-        # hardware disconnects/reconnects or changes in the Live settings).
+        # We'll reach this point after the SoftStep successfully responds to an identity
+        # request, which gets sent any time `is_identified` is set to False, i.e. during
+        # startup and when port settings change.
         #
         # For port changes, we don't know for sure whether the SoftStep was disconnected
         # (as opposed to a different device), so it's safest to always go through the
         # full startup process. False positives will briefly interrupt the device if
         # it's already connected, but some built-in control surfaces also have this
         # issue.
-        #
-        # First, pass through disabled mode to ensure that all display elements and
-        # sysex statuses get refreshed.
+        logger.info("identified SoftStep 2 device")
+
+        # This should have already been run by the `is_identified` listener when the
+        # property was set to `False`, e.g. at the beginning of the port change
+        # event. But it's harmless to run it again, and this serves as a failsafe to
+        # enter disabled mode, forcing all relevant sysex/CC messages to be re-sent as
+        # we enter other modes.
         self.__store_state_and_disable()
 
         # Next force the controller into standalone mode, and send the standalone
@@ -392,17 +392,6 @@ class modeStep(ControlSurface):
         if not self._on_identified_task.is_killed:
             self._on_identified_task.kill()
         self._on_identified_task.restart()
-
-    # Invoked after a delay if an identity request is sent but no
-    # response is received.
-    def _on_identity_response_timeout(self):
-        # Store the current mode in case so we can enable it if the controller
-        # reconnects, and relinquish control of everything.
-        #
-        # This ensures that nothing will be bound when/if the controller is next
-        # identified, and that we ignore any MIDI messages sent by e.g. other hardware
-        # that was connected on this port.
-        self.__store_state_and_disable()
 
     # Store any state needed to restore the controller to its current state (if it's
     # active), and place the controller into disabled mode if it isn't already.
@@ -421,27 +410,22 @@ class modeStep(ControlSurface):
 
     @listens("is_identified")
     def __on_is_identified_changed_local(self, is_identified: bool):
-        # This will trigger on startup, and whenever a new identity request is sent to
-        # an already-identified controller (e.g. when devices are
-        # connected/disconnected). If we don't get a timely response, we can assume the
-        # controller was physically disconnected.
+        logger.info(f"Is identified: {is_identified}")
+        # The positive case gets handled in `on_identified`.
         if not is_identified:
-            self._identity_response_timeout_task.restart()
-
-    @lazy_attribute
-    def _identity_response_timeout_task(self):
-        assert self.specification
-        # The `identity_request_delay` is the delay before a second identity request is
-        # sent. Let this elapse twice before considering the SoftStep disconnected.
-        timeout = self.specification.identity_request_delay * 2
-        identity_response_timeout_task = self._tasks.add(
-            task.sequence(
-                task.wait(timeout),
-                task.run(self._on_identity_response_timeout),
-            )
-        )
-        identity_response_timeout_task.kill()
-        return identity_response_timeout_task
+            # We'll reach this point on startup, and whenever the port settings change
+            # (e.g. when devices are connected or disconnected).
+            #
+            # We can't get any details about changes in port settings, so even if the
+            # SoftStep was previously identified, we don't know at this point whether
+            # it's connected. Disable the control surface immediately, to avoid a user
+            # mode potentially being active on reconnect before device setup has
+            # completed.
+            #
+            # Live will send one or more identity requests in the background. The
+            # control surface will be re-enabled when and if the SoftStep responds
+            # correctly.
+            self.__store_state_and_disable()
 
     @lazy_attribute
     def _on_identified_task(self):
