@@ -19,8 +19,8 @@ modeStep and your own SoftStep standalone presets.
 
 - Clone or download this repo and place it in your Live User Library
   under the `Remote Scripts/` directory. If you download it directly,
-  make sure to change the folder name from `modeStep-main` to
-  `modeStep` (or anything without a hyphen).
+  make sure to change the folder name from e.g. `modeStep-main` to
+  `modeStep` (or any valid python module name).
 - (Re)start Live, and go to `Link, Tempo & MIDI` in Preferences.
 - Choose `modeStep` as one of your control surfaces, and select the
   main SoftStep port (generally `SoftStep (Control Surface)` or
