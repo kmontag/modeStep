@@ -10,8 +10,9 @@ __pycache__/
 /.make.*
 
 # Terraform local data and transient state.
-/terraform/.terraform
-/terraform/terraform.tfstate
+/.github/terraform/.terraform
+/.github/terraform/terraform.tfstate
+/.github/terraform/terraform.tfstate.backup
 
 # Generated set files and project metadata.
 /tests/modeStep_tests_project/Ableton Project Info/
