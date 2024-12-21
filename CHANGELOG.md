@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## v0.1.0 (2024-12-21)
+
+### Chore
+
+* chore: hide terraform directory and add required PR checks ([`05b6969`](https://github.com/kmontag/modeStep/commit/05b6969ede28de1f580c546885e077b755cbbb5a))
+
+### Documentation
+
+* docs: update downloaded folder naming requirements ([`01a5430`](https://github.com/kmontag/modeStep/commit/01a54309652d879c4381d9486d85f886a90603d7))
+
+### Feature
+
+* feat: add display notifications for some transport actions (#10) ([`e808b53`](https://github.com/kmontag/modeStep/commit/e808b534c2c1bef11d6c68a150829e3462d4f4c2))
+
 ## v0.0.5 (2024-12-17)
 
 ### Documentation
