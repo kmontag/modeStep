@@ -59,7 +59,7 @@ _action_texts: Dict[Action, str] = {
     "redo": "Redo",
     "selected_track_arm": "ArmT",
     "session_record": "SRec",
-    "stop_all_clips": "StCl",
+    "stop_all_clips": "StAl",
     "tap_tempo": "TapT",
     "undo": "Undo",
 }
@@ -133,8 +133,11 @@ class Notifications(DefaultNotifications):
         new = _action_texts["new"]
 
     class Scene(DefaultNotifications.Scene):
-        launch = partial(_scene_notification, prefix="#")
+        launch = partial(_scene_notification, prefix=">")
         select = partial(_scene_notification, prefix="#")
+
+    class Session:
+        stop_all_clips = _action_texts["stop_all_clips"]
 
     class SessionNavigation:
         vertical = partial(_right_align_index, "_")
@@ -160,8 +163,8 @@ class Notifications(DefaultNotifications):
             pass
 
     class Transport(DefaultNotifications.Transport):
-        automation_arm = None  # partial(_toggle_text, _action_texts["automation_arm"])
-        # metronome = partial(_toggle_text, _action_texts["metronome"])
+        automation_arm = partial(_toggle_text, _action_texts["automation_arm"])
+        metronome = partial(_toggle_text, _action_texts["metronome"])
         midi_capture = _action_texts["capture_midi"]
         tap_tempo = lambda t: _right_align("T", int(t))  # noqa: E731
 
