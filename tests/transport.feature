@@ -143,3 +143,12 @@ Feature: Basic usage
     # Stop the transport so we can close the set cleanly.
     When I press key 3
     Then light 3 should be solid green
+
+  Scenario: Tapping the tempo
+    Then the display should be "Trns"
+
+    # Tapping the tempo once doesn't trigger a tempo change (and therefore doesn't push
+    # unsaved changes to the Live set), but should show the current tempo on the
+    # display.
+    When I press key 9
+    Then the display should be "T120"
