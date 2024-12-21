@@ -1,4 +1,3 @@
-from enum import Enum
 from itertools import count
 from logging import getLogger
 from typing import Any
@@ -31,21 +30,21 @@ class SessionComponent(SessionComponentBase):
     @depends(session_ring=None)
     def __init__(
         self,
+        *a,
         name="Session",
         session_ring=None,
         scene_component_type=None,
         clip_slot_component_type=None,
         clipboard_component_type=None,
-        *a,
         **k,
     ):
         super().__init__(
+            *a,
             name=name,
             session_ring=session_ring,
             scene_component_type=scene_component_type,
             clip_slot_component_type=clip_slot_component_type,
             clipboard_component_type=clipboard_component_type,
-            *a,
             **k,
         )
 
