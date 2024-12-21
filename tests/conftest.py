@@ -1178,8 +1178,10 @@ def should_be_text(
     text: str,
     device_state: DeviceState,
 ):
-    assert device_state.display_text is not None
-    assert device_state.display_text.strip() == text
+    assert device_state.display_text is not None, "Display text not yet set"
+    assert (
+        device_state.display_text.strip() == text
+    ), f'Expected display text to be "{text}", but was "{device_state.display_text.strip()}"'
 
 
 @then(parsers.parse('the display should be scrolling "{text}"'))

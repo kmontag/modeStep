@@ -59,7 +59,7 @@ class StoppingRecordingMethod(BasicRecordingMethod):
 
 
 class RecordingComponent(RecordingComponentBase):
-    # Push-style "New" button.
+    # Equivalent to Push's "Duplicate" button when used while clips are playing.
     capture_and_insert_scene_button: ButtonControl.State = ButtonControl(  # type: ignore
         color="Recording.CaptureAndInsertScene",
         pressed_color="Recording.CaptureAndInsertScenePressed",

@@ -197,7 +197,7 @@ Feature: Track controls modes
   # change.
   Examples:
     | gesture    | k1   | k2   | k3   | k4   | k5   | k6   | k7   | k8   | k9   |
-    | press      | LnSc | Rec  | Play | Met  | SRec | StCl | ArmT | Aut  | TapT |
+    | press      | LnSc | Rec  | Play | Met  | SRec | StAl | ArmT | Aut  | TapT |
     | long-press | AAr  | Undo | CpMD | CpSc | SRec | BaK  | Redo | Quan | NwCl |
 
   Scenario: Navigating through track control edit screens

@@ -11,5 +11,6 @@ from ableton.v3.base import (
     flatten,  # noqa: F401
     lazy_attribute,  # noqa: F401
     listens,  # noqa: F401
+    listens_group,  # noqa: F401
     memoize,  # noqa: F401
 )

@@ -1,6 +1,7 @@
 import typing
 
 from ableton.v2.base import Slot as __Slot
+from ableton.v2.base import SlotGroup as __SlotGroup
 
 T = typing.TypeVar("T")
 
@@ -16,4 +17,7 @@ class lazy_attribute(typing.Generic[T]):
 def listens(
     event_path: str, *a, **k
 ) -> typing.Callable[[typing.Callable[..., typing.Any]], __Slot]: ...
+def listens_group(
+    event_path: str, *a, **k
+) -> typing.Callable[[typing.Callable[..., typing.Any]], __SlotGroup]: ...
 def memoize(function: typing.Callable[..., T]) -> typing.Callable[..., T]: ...
