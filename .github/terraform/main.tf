@@ -80,26 +80,6 @@ resource "github_repository_ruleset" "main" {
     }
   }
 
-  bypass_actors {
-    actor_type = "RepositoryRole"
-
-    # Allow repository admins to manually bypass checks in PRs.
-    #
-    # Actor IDs by role: maintain -> 2, write -> 4, admin -> 5.
-    #
-    # See
-    # https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_ruleset#RepositoryRole-1.
-    actor_id = 5
-
-    # Don't be too strict about required checks. Allow bypass actors to bypass them:
-    #
-    # - when merging pull requests (requires manual confirmation on the PR page)
-    #
-    # - when pushing directly to main (bypass happens automatically, though a warning will be
-    #   printed during `git push`)
-    bypass_mode = "always"
-  }
-
   rules {
     # Require bypass permission to create/delete the default branch.
     creation = true
@@ -111,19 +91,10 @@ resource "github_repository_ruleset" "main" {
     # Prevent force-pushes to the default branch.
     non_fast_forward = true
 
-    # Require status checks to pass before merging PRs.
-    required_status_checks {
-      # Require checks to pass with the latest code.
-      strict_required_status_checks_policy = true
-
-      required_check {
-        context = "lint"
-      }
-
-      required_check {
-        context = "check-types"
-      }
-    }
+    # Note - it would be nice to have required status checks, but this would add some
+    # additional overhead to support automatic release commits with
+    # `python-semantic-release`.  See
+    # https://github.com/python-semantic-release/python-semantic-release/issues/311.
   }
 }
 
